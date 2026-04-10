@@ -1,3 +1,15 @@
+<div align="center">
+    
+[![Baseline Report](https://img.shields.io/badge/📑%20Baseline%20Report-MPDD--AVG%202026-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://github.com/hacilab/MPDD-AVG-2026/blob/main/MPDD_AVG%E2%80%94baseline.pdf)
+
+</div>
+<div align="center">
+    
+[![Dataset](https://img.shields.io/badge/🤗%20Dataset-MPDD--AVG--2026-orange?style=for-the-badge&logo=huggingface&logoColor=white)](https://huggingface.co/datasets/chasonfff/MPDD-AVG-2026/tree/main)
+
+</div>
+
+
 # MPDD-AVG Baseline
 
 一个面向 `MPDD-AVG2026` 的多模态基线工程，支持：
