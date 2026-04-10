@@ -24,6 +24,8 @@
 > Both binary and ternary classification jointly train a **PHQ-9 regression head**, so each experiment outputs both classification metrics and PHQ-9 regression metrics.
 
 ---
+## The weights of our best model will be uploaded soon!
+---
 
 ## 📋 Table of Contents
 
