@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import logging
+import os
 import random
 import sys
 import time
@@ -28,6 +29,7 @@ SUBTRACK_LOG_DIRS = {
     "G+P": "G-P",
 }
 METRIC_ARRAY_KEYS = {"ids", "y_true", "y_pred", "class_true", "class_pred", "phq_true", "phq_pred"}
+PATH_ARG_KEYS = {"config", "data_root", "split_csv", "personality_npy", "checkpoints_dir", "logs_dir"}
 
 
 def load_config(config_path: str | Path) -> dict[str, Any]:
@@ -105,6 +107,21 @@ def resolve_track_task_dir(root: Path, track: str, subtrack: str, task: str, exp
     return root / track / subtrack_dir / task / experiment_name
 
 
+def to_project_relative_path(path_like: str | Path) -> str:
+    path = resolve_project_path(path_like)
+    return Path(os.path.relpath(path, PROJECT_ROOT)).as_posix()
+
+
+def normalize_path_args(values: dict[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+    for key, value in values.items():
+        if key in PATH_ARG_KEYS and value not in (None, ""):
+            normalized[key] = to_project_relative_path(value)
+        else:
+            normalized[key] = value
+    return normalized
+
+
 def build_experiment_name(args: argparse.Namespace) -> str:
     feature_tag = "gait_only" if args.subtrack == "G+P" else f"{args.audio_feature}__{args.video_feature}"
     if args.task == REGRESSION_TASK:
@@ -152,7 +169,6 @@ def get_selection_metric_name(task: str) -> str:
 
 def main() -> None:
     args = parse_args()
-    setup_seed(args.seed)
 
     experiment_name = build_experiment_name(args)
     timestamp = time.strftime("%Y-%m-%d-%H.%M.%S", time.localtime())
@@ -170,9 +186,9 @@ def main() -> None:
         split_csv=args.split_csv,
         task=args.task,
         val_ratio=args.val_ratio,
-        seed=args.seed,
         regression_label=args.regression_label,
     )
+    setup_seed(args.seed)
     use_regression_head = True
     is_regression_task = args.task == REGRESSION_TASK
     train_dataset = MPDDElderDataset(
@@ -319,9 +335,9 @@ def main() -> None:
                     "audio_feature": args.audio_feature,
                     "video_feature": args.video_feature,
                     "regression_label": args.regression_label if is_regression_task else "",
-                    "data_root": args.data_root,
-                    "split_csv": args.split_csv,
-                    "personality_npy": args.personality_npy,
+                    "data_root": to_project_relative_path(args.data_root),
+                    "split_csv": to_project_relative_path(args.split_csv),
+                    "personality_npy": to_project_relative_path(args.personality_npy),
                     "target_t": args.target_t,
                     "seed": args.seed,
                     "experiment_name": experiment_name,
@@ -347,6 +363,8 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(history_rows)
 
+    best_checkpoint_rel = to_project_relative_path(best_checkpoint_path)
+    history_rel = to_project_relative_path(history_path)
     result_payload = {
         "experiment_name": experiment_name,
         "timestamp": timestamp,
@@ -360,12 +378,12 @@ def main() -> None:
         "best_epoch": best_epoch,
         "selection_metric": selection_metric_name,
         "best_val_metrics": best_val_summary,
-        "checkpoint_path": str(best_checkpoint_path),
-        "history_path": str(history_path),
+        "checkpoint_path": best_checkpoint_rel,
+        "history_path": history_rel,
         "predictions_path": "",
         "train_count": len(train_dataset),
         "val_count": len(val_dataset),
-        "config": vars(args),
+        "config": normalize_path_args(vars(args)),
     }
     result_path = log_dir / f"train_result_{timestamp}.json"
     with open(result_path, "w", encoding="utf-8") as handle:
@@ -381,7 +399,7 @@ def main() -> None:
         "video_feature": args.video_feature,
         "seed": args.seed,
         "best_epoch": best_epoch,
-        "checkpoint_path": str(best_checkpoint_path),
+        "checkpoint_path": best_checkpoint_rel,
         "predictions_path": "",
         "metric_split": "val",
         "selection_metric": selection_metric_name,
@@ -397,8 +415,8 @@ def main() -> None:
     if is_regression_task:
         summary_row["regression_label"] = args.regression_label
     append_summary_row(log_dir / f"{experiment_name}.csv", summary_row)
-    logger.info("Best checkpoint: %s", best_checkpoint_path)
-    logger.info("Validation metrics saved to: %s", result_path)
+    logger.info("Best checkpoint: %s", best_checkpoint_rel)
+    logger.info("Validation metrics saved to: %s", to_project_relative_path(result_path))
 
 
 if __name__ == "__main__":

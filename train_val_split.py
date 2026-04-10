@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from sklearn.model_selection import ShuffleSplit, StratifiedShuffleSplit
 from dataset import REGRESSION_TASK, get_phq9_target, get_task_label, resolve_project_path
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent
 POOL_SPLITS = {"", "train", "val"}
 
 
@@ -33,7 +35,6 @@ def create_train_val_split(
     split_csv: str | Path,
     task: str,
     val_ratio: float = 0.1,
-    seed: int = 3407,
     regression_label: str = "label2",
 ) -> dict[str, Any]:
     rows = _load_train_rows(split_csv)
@@ -48,10 +49,10 @@ def create_train_val_split(
     label_counts = Counter(int(label) for label in sample_labels)
     splitter: StratifiedShuffleSplit | ShuffleSplit
     if label_counts and min(label_counts.values()) >= 2:
-        splitter = StratifiedShuffleSplit(n_splits=1, train_size=1.0 - val_ratio, random_state=seed)
+        splitter = StratifiedShuffleSplit(n_splits=1, train_size=1.0 - val_ratio)
         train_indices, val_indices = next(splitter.split(sample_ids, sample_labels))
     else:
-        splitter = ShuffleSplit(n_splits=1, train_size=1.0 - val_ratio, random_state=seed)
+        splitter = ShuffleSplit(n_splits=1, train_size=1.0 - val_ratio)
         train_indices, val_indices = next(splitter.split(sample_ids))
 
     train_id_split = [sample_ids[index] for index in train_indices]
@@ -108,13 +109,17 @@ def save_split_preview(
     return save_path
 
 
+def to_project_relative_path(path_like: str | Path) -> str:
+    path = resolve_project_path(path_like)
+    return Path(os.path.relpath(path, PROJECT_ROOT)).as_posix()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a train/val split from official MPDD-AVG train IDs.")
     parser.add_argument("--task", required=True, choices=["binary", "ternary", REGRESSION_TASK])
     parser.add_argument("--regression_label", default="label2", choices=["label2", "label3"])
     parser.add_argument("--split_csv", default="MPDD-AVG2026/MPDD-AVG2026-trainval/Elder/split_labels_train.csv")
     parser.add_argument("--val_ratio", type=float, default=0.1)
-    parser.add_argument("--seed", type=int, default=3407)
     parser.add_argument("--save_path", default="")
     return parser.parse_args()
 
@@ -125,7 +130,6 @@ def main() -> None:
         split_csv=args.split_csv,
         task=args.task,
         val_ratio=args.val_ratio,
-        seed=args.seed,
         regression_label=args.regression_label,
     )
     if args.save_path:
@@ -135,13 +139,12 @@ def main() -> None:
             val_ids=split_payload["val_ids"],
             save_path=args.save_path,
         )
-        print(json.dumps({"save_path": str(preview_path)}, ensure_ascii=False))
+        print(json.dumps({"save_path": to_project_relative_path(preview_path)}, ensure_ascii=False))
         return
 
     summary = {
         "task": args.task,
         "regression_label": args.regression_label if args.task == REGRESSION_TASK else "",
-        "seed": args.seed,
         "val_ratio": args.val_ratio,
         "train_count": len(split_payload["train_ids"]),
         "val_count": len(split_payload["val_ids"]),

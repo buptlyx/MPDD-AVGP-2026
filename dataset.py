@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 EPS = 1e-6
 TARGET_T = 128
 PAIR_COUNT = 4
+GAIT_KEEP_DIM = 9
 CLASSIFICATION_TASK_TO_COLUMN = {
     "binary": "label2",
     "ternary": "label3",
@@ -283,7 +284,7 @@ def _load_personality_map(personality_npy: str | Path) -> dict[int, np.ndarray]:
     return {int(item["id"]): np.asarray(item["embedding"], dtype=np.float32) for item in data}
 
 
-def _infer_feature_dim(roots: list[Path]) -> int:
+def _infer_feature_dim(roots: list[Path], max_dim: int | None = None) -> int:
     for root in roots:
         if not root.exists():
             continue
@@ -295,19 +296,28 @@ def _infer_feature_dim(roots: list[Path]) -> int:
             except Exception:
                 continue
             if array.ndim >= 2 and array.shape[-1] > 0:
-                return int(array.shape[-1])
+                dim = int(array.shape[-1])
+                return min(dim, max_dim) if max_dim is not None else dim
             if array.ndim == 1 and array.shape[0] > 0:
-                return int(array.shape[0])
+                dim = int(array.shape[0])
+                return min(dim, max_dim) if max_dim is not None else dim
     return 1
 
 
-def _load_feature_array(path: Path, fallback_dim: int) -> np.ndarray:
+def _load_feature_array(path: Path, fallback_dim: int, max_dim: int | None = None) -> np.ndarray:
     if path.is_file() and path.stat().st_size > 0:
         try:
-            return _normalize(np.load(str(path), allow_pickle=True))
+            array = _normalize(np.load(str(path), allow_pickle=True))
+            if max_dim is not None:
+                if array.ndim >= 2 and array.shape[-1] > max_dim:
+                    array = array[..., :max_dim]
+                elif array.ndim == 1 and array.shape[0] > max_dim:
+                    array = array[:max_dim]
+            return array
         except Exception:
             pass
-    return np.zeros((1, fallback_dim), dtype=np.float32)
+    effective_dim = min(fallback_dim, max_dim) if max_dim is not None else fallback_dim
+    return np.zeros((1, effective_dim), dtype=np.float32)
 
 
 class MPDDElderDataset(Dataset):
@@ -366,7 +376,7 @@ class MPDDElderDataset(Dataset):
         }
         self.audio_dim_hint = _infer_feature_dim(list(self.audio_roots.values())) if self.need_av else 0
         self.video_dim_hint = _infer_feature_dim(list(self.video_roots.values())) if self.need_av else 0
-        self.gait_dim_hint = _infer_feature_dim(list(self.gait_roots.values())) if self.need_gait else 0
+        self.gait_dim_hint = _infer_feature_dim(list(self.gait_roots.values()), max_dim=GAIT_KEEP_DIM) if self.need_gait else 0
         self.personality_map = _load_personality_map(personality_npy)
         self.samples = self._collect_samples()
         if not self.samples:
@@ -454,7 +464,7 @@ class MPDDElderDataset(Dataset):
             result["pair_mask"] = torch.tensor(pair_mask, dtype=torch.float32)
 
         if self.need_gait:
-            gait_arr = _load_feature_array(sample["gait_file"], self.gait_dim_hint)
+            gait_arr = _load_feature_array(sample["gait_file"], self.gait_dim_hint, max_dim=GAIT_KEEP_DIM)
             result["gait"] = _resize(gait_arr, self.target_t)
 
         personality = self.personality_map.get(person_id, np.zeros(1024, dtype=np.float32))

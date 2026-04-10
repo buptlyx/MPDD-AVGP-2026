@@ -15,8 +15,8 @@ DROPOUT="${DROPOUT:-0.5}"
 PATIENCE="${PATIENCE:-25}"
 MIN_DELTA="${MIN_DELTA:-1e-4}"
 TARGET_T="${TARGET_T:-128}"
-AUDIO_FEATURES=(${AUDIO_FEATURES:-mfcc opensmile wav2vec})
-VIDEO_FEATURES=(${VIDEO_FEATURES:-densenet resnet openface})
+AUDIO_FEATURES=(mfcc opensmile wav2vec)
+VIDEO_FEATURES=(densenet resnet openface)
 
 for AUDIO_FEATURE in "${AUDIO_FEATURES[@]}"; do
   for VIDEO_FEATURE in "${VIDEO_FEATURES[@]}"; do
