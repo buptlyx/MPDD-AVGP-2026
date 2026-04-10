@@ -1,9 +1,22 @@
-<div align="center">
+## 🌐 Website
+
+<div align="left">
+
+[![Website](https://img.shields.io/badge/🌐%20Official%20Website-MPDD--AVG%202026-brightgreen?style=for-the-badge&logo=github&logoColor=white)](https://hacilab.github.io/MPDD-AVG-2026.github.io/index.html)
+
+</div>
+
+## 📄 Baseline Report
+
+<div align="left">
     
 [![Baseline Report](https://img.shields.io/badge/📑%20Baseline%20Report-MPDD--AVG%202026-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://github.com/hacilab/MPDD-AVG-2026/blob/main/MPDD_AVG%E2%80%94baseline.pdf)
 
 </div>
-<div align="center">
+
+## 🗂️ Dataset
+
+<div align="left">
     
 [![Dataset](https://img.shields.io/badge/🤗%20Dataset-MPDD--AVG--2026-orange?style=for-the-badge&logo=huggingface&logoColor=white)](https://huggingface.co/datasets/chasonfff/MPDD-AVG-2026/tree/main)
 
