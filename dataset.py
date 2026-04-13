@@ -43,6 +43,10 @@ YOUNG_VIDEO_EVENT_NAMES = {
 }
 
 
+def normalize_phq_target(value: float | int) -> float:
+    return float(np.log1p(max(float(value), 0.0)))
+
+
 def resolve_project_path(path_like: str | Path) -> Path:
     path = Path(path_like)
     return path if path.is_absolute() else (PROJECT_ROOT / path).resolve()
@@ -398,7 +402,7 @@ class MPDDElderDataset(Dataset):
             if self.has_phq_target:
                 if person_id not in self.phq_map:
                     continue
-                sample["phq9"] = float(self.phq_map[person_id])
+                sample["phq9"] = normalize_phq_target(self.phq_map[person_id])
 
             if self.need_gait:
                 gait_file = _resolve_gait_file(self.gait_roots[source_split], person_id)
