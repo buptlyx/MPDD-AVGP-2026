@@ -9,7 +9,7 @@
 ## 📄 Baseline Report
 
 <div align="left">
-    
+
 [![Baseline Report](https://img.shields.io/badge/📑%20Baseline%20Report-MPDD--AVG%202026-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://github.com/hacilab/MPDD-AVG-2026/blob/main/MPDD_AVG%E2%80%94baseline.pdf)
 
 </div>
@@ -17,11 +17,10 @@
 ## 🗂️ Dataset
 
 <div align="left">
-    
+
 [![Dataset](https://img.shields.io/badge/🤗%20Dataset-MPDD--AVG--2026-orange?style=for-the-badge&logo=huggingface&logoColor=white)](https://huggingface.co/datasets/chasonfff/MPDD-AVG-2026/tree/main)
 
 </div>
-
 
 # MPDD-AVG Baseline
 
@@ -341,17 +340,17 @@ python train.py \
 - `bilstm_mean`
 - `hybrid_attn`
 
-### 7.2 测试指定 checkpoint
+### 7.2 测试指定 checkpoint（test_scripts/README.md）
 
-训练结束后，直接评估最优模型：
+**测试示例**
 
 ```bash
-python test.py \
-  --checkpoint checkpoints/Track1/A-V-G+P/binary/your_experiment/best_model_xxx.pth \
-  --device cuda
+python test.py
+   --checkpoint checkpoints/Track2/A-V-G+P/ternary/track2_ternary_A-V-G+P_bilstm_mean_wav2vec__resnet_log1p/best_model_*.pth
+   --data_root MPDD-AVG2026/MPDD-AVG2026-test/Young
+   --split_csv MPDD-AVG2026/MPDD-AVG2026-test/Young/split_labels_test.csv
+   --personality_npy MPDD-AVG2026/MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy
 ```
-
-`test.py` 会优先读取 checkpoint 内保存的数据路径、任务配置和特征配置，因此通常只传 `--checkpoint` 即可。
 
 ### 7.3 只生成 train/val 划分预览
 

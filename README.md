@@ -14,17 +14,19 @@
 
 ## ✨ Supported Configuration
 
-| Dimension | Options |
-|-----------|---------|
-| **Tracks** | `Track1` (Elder) · `Track2` (Young) |
-| **Tasks** | Binary classification (`label2`) · Ternary classification (`label3`) |
-| **Sub-tracks** | `A-V+P` · `A-V-G+P` · `G+P` |
-| **Encoders** | `bilstm_mean` · `hybrid_attn` |
+| Dimension            | Options                                                                   |
+| -------------------- | ------------------------------------------------------------------------- |
+| **Tracks**     | `Track1` (Elder) · `Track2` (Young)                                  |
+| **Tasks**      | Binary classification (`label2`) · Ternary classification (`label3`) |
+| **Sub-tracks** | `A-V+P` · `A-V-G+P` · `G+P`                                       |
+| **Encoders**   | `bilstm_mean` · `hybrid_attn`                                        |
 
 > Both binary and ternary classification jointly train a **PHQ-9 regression head**, so each experiment outputs both classification metrics and PHQ-9 regression metrics.
 
 ---
+
 ## The weights of our best model will be uploaded soon!
+
 ---
 
 ## 📋 Table of Contents
@@ -33,12 +35,12 @@
 2. [Project Structure](#2-project-structure)
 3. [Environment Setup](#3-environment-setup)
 4. [Dataset Preparation](#4-dataset-preparation)
-5. [Modalities & Features](#5-supported-modalities--features)
+5. [Modalities &amp; Features](#5-supported-modalities--features)
 6. [Quick Start](#6-quick-start)
 7. [Manual CLI Usage](#7-manual-cli-usage)
 8. [Train/Val Split Strategy](#8-trainval-split-strategy)
 9. [Output Files](#9-output-files)
-10. [Metrics & Model Selection](#10-metrics--model-selection)
+10. [Metrics &amp; Model Selection](#10-metrics--model-selection)
 11. [Reproducing Experiments](#11-reproducing-experiments)
 12. [FAQ](#12-faq)
 
@@ -55,14 +57,14 @@
 
 **Output metrics (6 total):**
 
-| Metric | Source |
-|--------|--------|
-| `Macro-F1` | Classification head |
-| `ACC` | Classification head |
-| `Kappa` | Classification head |
-| `CCC` | PHQ-9 regression head |
-| `RMSE` | PHQ-9 regression head |
-| `MAE` | PHQ-9 regression head |
+| Metric       | Source                |
+| ------------ | --------------------- |
+| `Macro-F1` | Classification head   |
+| `ACC`      | Classification head   |
+| `Kappa`    | Classification head   |
+| `CCC`      | PHQ-9 regression head |
+| `RMSE`     | PHQ-9 regression head |
+| `MAE`      | PHQ-9 regression head |
 
 ---
 
@@ -161,23 +163,23 @@ MPDD-AVG2026/
 
 **Sub-track definitions:**
 
-| Sub-track | Modalities |
-|-----------|-----------|
-| `A-V+P` | Audio + Video + Personality |
+| Sub-track   | Modalities                         |
+| ----------- | ---------------------------------- |
+| `A-V+P`   | Audio + Video + Personality        |
 | `A-V-G+P` | Audio + Video + Gait + Personality |
-| `G+P` | Gait + Personality only |
+| `G+P`     | Gait + Personality only            |
 
 **Feature dimensions by track:**
 
-| Modality | Feature | Track1 (Elder) | Track2 (Young) |
-|----------|---------|:--------------:|:--------------:|
-| Audio | `mfcc` / `mfcc64` | 64 | 64 |
-| Audio | `opensmile` | 65 | 65 |
-| Audio | `wav2vec` / `wav2vec2` | 768 | 1024 |
-| Video | `densenet` | 1000 | 1000 |
-| Video | `resnet` | 1000 | 1000 |
-| Video | `openface` | 710 | 710 |
-| IMU | `gait` | 12 | 12 |
+| Modality | Feature                    | Track1 (Elder) | Track2 (Young) |
+| -------- | -------------------------- | :------------: | :------------: |
+| Audio    | `mfcc` / `mfcc64`      |       64       |       64       |
+| Audio    | `opensmile`              |       65       |       65       |
+| Audio    | `wav2vec` / `wav2vec2` |      768      |      1024      |
+| Video    | `densenet`               |      1000      |      1000      |
+| Video    | `resnet`                 |      1000      |      1000      |
+| Video    | `openface`               |      710      |      710      |
+| IMU      | `gait`                   |       12       |       12       |
 
 **Temporal processing:** All time-series modalities (`audio / video / gait`) are read as raw `[T, C]` tensors, then **linearly interpolated** to a fixed length `target_t` (default: `128`). The `personality` feature is a fixed-length vector and is not interpolated. This is consistent across all tracks and sub-tracks.
 
@@ -211,20 +213,20 @@ DEVICE=cpu EPOCHS=5 BATCH_SIZE=4 LR=1e-3 bash scripts/Track1/A-V-P/run_binary.sh
 
 **All overridable parameters:**
 
-| Variable | Description |
-|----------|-------------|
-| `DEVICE` | `cuda` or `cpu` |
-| `SEED` | Random seed |
-| `EPOCHS` | Number of training epochs |
-| `BATCH_SIZE` | Batch size |
-| `LR` | Learning rate |
-| `WEIGHT_DECAY` | Weight decay |
-| `HIDDEN_DIM` | Hidden dimension size |
-| `DROPOUT` | Dropout rate |
-| `PATIENCE` | Early stopping patience |
-| `MIN_DELTA` | Minimum delta for early stopping |
-| `TARGET_T` | Temporal interpolation target length |
-| `PYTHON_BIN` | Python binary path |
+| Variable         | Description                          |
+| ---------------- | ------------------------------------ |
+| `DEVICE`       | `cuda` or `cpu`                  |
+| `SEED`         | Random seed                          |
+| `EPOCHS`       | Number of training epochs            |
+| `BATCH_SIZE`   | Batch size                           |
+| `LR`           | Learning rate                        |
+| `WEIGHT_DECAY` | Weight decay                         |
+| `HIDDEN_DIM`   | Hidden dimension size                |
+| `DROPOUT`      | Dropout rate                         |
+| `PATIENCE`     | Early stopping patience              |
+| `MIN_DELTA`    | Minimum delta for early stopping     |
+| `TARGET_T`     | Temporal interpolation target length |
+| `PYTHON_BIN`   | Python binary path                   |
 
 ---
 
@@ -233,6 +235,7 @@ DEVICE=cpu EPOCHS=5 BATCH_SIZE=4 LR=1e-3 bash scripts/Track1/A-V-P/run_binary.sh
 ### 7.1 Training
 
 **Binary classification:**
+
 ```bash
 python train.py \
   --track Track1 \
@@ -245,6 +248,7 @@ python train.py \
 ```
 
 **Ternary classification:**
+
 ```bash
 python train.py \
   --track Track2 \
@@ -261,15 +265,17 @@ python train.py \
 
 Available encoders: `bilstm_mean` · `hybrid_attn`
 
-### 7.2 Evaluate a Specific Checkpoint （you can download our baseline checkpoints from [huggingface](https://huggingface.co/datasets/chasonfff/MPDD-AVG-2026/tree/main)）
+### 7.2 Evaluate a Specific Checkpoint （test_scripts/README.md）
 
-```bash
-python test.py \
-  --checkpoint checkpoints/Track1/A-V-G+P/binary/your_experiment/best_model_xxx.pth \
-  --device cuda
+**Test Example**
+
 ```
-
-> `test.py` reads data paths, task config, and feature config directly from the checkpoint — usually only `--checkpoint` is needed.
+python test.py
+   --checkpoint checkpoints/Track2/A-V-G+P/ternary/track2_ternary_A-V-G+P_bilstm_mean_wav2vec__resnet_log1p/best_model_*.pth
+   --data_root MPDD-AVG2026/MPDD-AVG2026-test/Young
+   --split_csv MPDD-AVG2026/MPDD-AVG2026-test/Young/split_labels_test.csv
+   --personality_npy MPDD-AVG2026/MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy
+```
 
 ### 7.3 Preview Train/Val Split
 
@@ -284,13 +290,13 @@ python train_val_split.py \
 
 ## 8. Train/Val Split Strategy
 
-| Rule | Detail |
-|------|--------|
-| Scope | Val is carved only from the official `train` split |
-| Subject isolation | Splits by `ID` — no subject appears in both train and val |
-| Stratification | `binary` stratifies by `label2`; `ternary` by `label3` |
-| Default ratio | `val_ratio = 0.1` |
-| Reproducibility | Fixed split as long as data and random seed are unchanged |
+| Rule              | Detail                                                         |
+| ----------------- | -------------------------------------------------------------- |
+| Scope             | Val is carved only from the official `train` split           |
+| Subject isolation | Splits by `ID` — no subject appears in both train and val   |
+| Stratification    | `binary` stratifies by `label2`; `ternary` by `label3` |
+| Default ratio     | `val_ratio = 0.1`                                            |
+| Reproducibility   | Fixed split as long as data and random seed are unchanged      |
 
 > 💡 **Tip — Ensure class coverage in val:** When splitting, make sure the validation set samples **at least one example per class label**. With small datasets or imbalanced label distributions, a naive random split may leave certain classes entirely out of val. Use stratified sampling (e.g., `sklearn.model_selection.StratifiedShuffleSplit`) to guarantee that every class in `label2` / `label3` is represented in the validation set — otherwise your val metrics will be unreliable and early stopping may select suboptimal checkpoints.
 
@@ -305,13 +311,13 @@ checkpoints/{Track}/{SubtrackDir}/{task}/{experiment_name}/
 logs/{Track}/{SubtrackDir}/{task}/{experiment_name}/
 ```
 
-| File | Description |
-|------|-------------|
-| `best_model_{timestamp}.pth` | Best checkpoint |
-| `result_{timestamp}.log` | Training log |
-| `history_{timestamp}.csv` | Metric history per epoch |
-| `train_result_{timestamp}.json` | Consolidated result summary |
-| `{experiment_name}.csv` | Experiment result table |
+| File                                  | Description                               |
+| ------------------------------------- | ----------------------------------------- |
+| `best_model_{timestamp}.pth`        | Best checkpoint                           |
+| `result_{timestamp}.log`            | Training log                              |
+| `history_{timestamp}.csv`           | Metric history per epoch                  |
+| `train_result_{timestamp}.json`     | Consolidated result summary               |
+| `{experiment_name}.csv`             | Experiment result table                   |
 | `test_result_only_{timestamp}.json` | Test-only result (when using `test.py`) |
 
 ---
@@ -320,14 +326,14 @@ logs/{Track}/{SubtrackDir}/{task}/{experiment_name}/
 
 Classification tasks output 6 metrics at val and test time:
 
-| Metric | Head | Task |
-|--------|------|------|
-| `Macro-F1` | Classification | binary / ternary |
-| `ACC` | Classification | binary / ternary |
-| `Kappa` | Classification | binary / ternary |
-| `CCC` | PHQ-9 regression | all |
-| `RMSE` | PHQ-9 regression | all |
-| `MAE` | PHQ-9 regression | all |
+| Metric       | Head             | Task             |
+| ------------ | ---------------- | ---------------- |
+| `Macro-F1` | Classification   | binary / ternary |
+| `ACC`      | Classification   | binary / ternary |
+| `Kappa`    | Classification   | binary / ternary |
+| `CCC`      | PHQ-9 regression | all              |
+| `RMSE`     | PHQ-9 regression | all              |
+| `MAE`      | PHQ-9 regression | all              |
 
 **Best checkpoint selection criterion:**
 
@@ -347,6 +353,7 @@ For reproducibility, **run the scripts in `scripts/` directly** — they already
 - Common hyperparameters
 
 Notes:
+
 - `Track1` uses the Elder default paths in `config.json`
 - `Track2` scripts explicitly override to the Young data paths
 - Default `target_t = 128`
@@ -358,6 +365,7 @@ Notes:
 **Q: Can I run without a GPU?**
 
 Yes. Prefix your command with `DEVICE=cpu`:
+
 ```bash
 DEVICE=cpu bash scripts/Track1/A-V-P/run_binary.sh
 ```
@@ -365,6 +373,7 @@ DEVICE=cpu bash scripts/Track1/A-V-P/run_binary.sh
 **Q: How do I switch audio/video features?**
 
 Edit the script directly, or pass arguments on the command line:
+
 ```bash
 python train.py --audio_feature mfcc --video_feature densenet ...
 ```
@@ -382,6 +391,7 @@ python train.py --encoder_type hybrid_attn ...
 **Q: How is temporal sequence length handled?**
 
 All time-series modalities are linearly interpolated to `target_t` (default: `128`) — not hard-truncated or randomly cropped. To change this:
+
 ```bash
 TARGET_T=256 bash scripts/Track1/G-P/run_binary.sh
 # or
