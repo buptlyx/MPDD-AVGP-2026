@@ -261,7 +261,7 @@ python train.py \
 
 Available encoders: `bilstm_mean` · `hybrid_attn`
 
-### 7.2 Evaluate a Specific Checkpoint
+### 7.2 Evaluate a Specific Checkpoint （you can download our baseline checkpoints from [huggingface](https://huggingface.co/datasets/chasonfff/MPDD-AVG-2026/tree/main)）
 
 ```bash
 python test.py \
