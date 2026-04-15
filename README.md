@@ -93,7 +93,7 @@ MPDD_Avg/
 │       ├── A-V-P/
 │       ├── A-V-G+P/
 │       └── G-P/
-├── checkpoints/
+├── checkpoints/(the checkpoints of baseline system have been uploaded!)
 ├── logs/
 └── MPDD-AVG2026/
 ```
