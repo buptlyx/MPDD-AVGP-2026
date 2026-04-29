@@ -1,0 +1,77 @@
+{
+  "experiment_name": "track2_log1p_ternary",
+  "timestamp": "2026-04-29-16.25.37",
+  "task": "ternary",
+  "track": "Track2",
+  "subtrack": "G+P",
+  "encoder_type": "bilstm_mean",
+  "audio_feature": "mfcc",
+  "video_feature": "densenet",
+  "regression_label": "",
+  "best_epoch": 7,
+  "selection_metric": "f1",
+  "best_val_metrics": {
+    "acc": 0.3333333333333333,
+    "f1": 0.2619047619047619,
+    "kappa": 0.10000000000000009,
+    "ccc": -0.013018787880041368,
+    "rmse": 0.8183402940530926,
+    "mae": 0.6162217722998725,
+    "confusion_matrix": [
+      [
+        2,
+        0,
+        3
+      ],
+      [
+        1,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        1
+      ]
+    ],
+    "selection_score": 0.2619047619047619,
+    "r2": -0.023194297319387713,
+    "cls_loss": 1.1048346757888794,
+    "reg_loss": 0.6696808934211731,
+    "loss": 1.7745156288146973
+  },
+  "checkpoint_path": "checkpoints/Track2/G-P/ternary/track2_log1p_ternary/best_model_2026-04-29-16.25.37.pth",
+  "history_path": "logs/Track2/G-P/ternary/track2_log1p_ternary/history_2026-04-29-16.25.37.csv",
+  "predictions_path": "",
+  "train_count": 79,
+  "val_count": 9,
+  "config": {
+    "config": "config.json",
+    "track": "Track2",
+    "task": "ternary",
+    "regression_label": "label2",
+    "subtrack": "G+P",
+    "encoder_type": "bilstm_mean",
+    "audio_feature": "mfcc",
+    "video_feature": "densenet",
+    "data_root": "../../samba/MPDD-AVG-2026/Train-MPDD-Young/Young",
+    "split_csv": "../../samba/MPDD-AVG-2026/Train-MPDD-Young/Young/split_labels_train.csv",
+    "personality_npy": "../../samba/MPDD-AVG-2026/Train-MPDD-Young/Young/descriptions_embeddings_with_ids.npy",
+    "val_ratio": 0.1,
+    "seed": 3407,
+    "epochs": 100,
+    "batch_size": 16,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "target_t": 128,
+    "device": "cuda",
+    "hidden_dim": 64,
+    "dropout": 0.5,
+    "patience": 20,
+    "min_delta": 0.0001,
+    "num_workers": 0,
+    "checkpoints_dir": "checkpoints",
+    "logs_dir": "logs",
+    "experiment_name": "track2_log1p_ternary"
+  }
+}

@@ -1,0 +1,7 @@
+2026-04-29 16:18:12,180 - INFO - Experiment: track1_binary_G+P_bilstm_mean_gait_only
+2026-04-29 16:18:12,180 - INFO - Device: cuda
+2026-04-29 16:18:12,180 - INFO - Train/Val: 78 / 9
+2026-04-29 16:18:12,807 - INFO - Epoch 1/2 | train_loss=1.648244 | val_f1=0.400000 val_acc=0.666667 val_kappa=0.000000 val_ccc=-0.002493 val_rmse=0.898003 val_mae=0.761555
+2026-04-29 16:18:13,091 - INFO - Epoch 2/2 | train_loss=1.457612 | val_f1=0.400000 val_acc=0.666667 val_kappa=0.000000 val_ccc=-0.000571 val_rmse=0.949025 val_mae=0.782534
+2026-04-29 16:18:13,092 - INFO - Best checkpoint: checkpoints/Track1/G-P/binary/track1_binary_G+P_bilstm_mean_gait_only/best_model_2026-04-29-16.18.10.pth
+2026-04-29 16:18:13,092 - INFO - Validation metrics saved to: logs/Track1/G-P/binary/track1_binary_G+P_bilstm_mean_gait_only/train_result_2026-04-29-16.18.10.json

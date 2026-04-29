@@ -1,0 +1,2 @@
+﻿timestamp,task,track,subtrack,encoder_type,audio_feature,video_feature,seed,best_epoch,checkpoint_path,predictions_path,metric_split,selection_metric,selection_score,Macro-F1,ACC,Kappa,CCC,RMSE,MAE,R2
+2026-04-29-16.21.53,ternary,Track1,G+P,bilstm_mean,mfcc,densenet,42,2,checkpoints/Track1/G-P/ternary/track1_elder_final6_gp_ternary/best_model_2026-04-29-16.21.53.pth,,val,f1,0.266667,0.266667,0.666667,0.000000,0.001306,0.764512,0.587271,

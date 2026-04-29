@@ -1,0 +1,77 @@
+{
+  "experiment_name": "track1_elder_final6_gp_ternary",
+  "timestamp": "2026-04-29-16.21.53",
+  "task": "ternary",
+  "track": "Track1",
+  "subtrack": "G+P",
+  "encoder_type": "bilstm_mean",
+  "audio_feature": "mfcc",
+  "video_feature": "densenet",
+  "regression_label": "",
+  "best_epoch": 2,
+  "selection_metric": "f1",
+  "best_val_metrics": {
+    "acc": 0.6666666666666666,
+    "f1": 0.26666666666666666,
+    "kappa": 0.0,
+    "ccc": 0.0013055475280536596,
+    "rmse": 0.764512287762882,
+    "mae": 0.5872713857226901,
+    "confusion_matrix": [
+      [
+        6,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0
+      ]
+    ],
+    "selection_score": 0.26666666666666666,
+    "r2": -0.1748683302058489,
+    "cls_loss": 1.0354356500837538,
+    "reg_loss": 0.5844790405697293,
+    "loss": 1.6199147038989596
+  },
+  "checkpoint_path": "checkpoints/Track1/G-P/ternary/track1_elder_final6_gp_ternary/best_model_2026-04-29-16.21.53.pth",
+  "history_path": "logs/Track1/G-P/ternary/track1_elder_final6_gp_ternary/history_2026-04-29-16.21.53.csv",
+  "predictions_path": "",
+  "train_count": 78,
+  "val_count": 9,
+  "config": {
+    "config": "config.json",
+    "track": "Track1",
+    "task": "ternary",
+    "regression_label": "label2",
+    "subtrack": "G+P",
+    "encoder_type": "bilstm_mean",
+    "audio_feature": "mfcc",
+    "video_feature": "densenet",
+    "data_root": "../../samba/MPDD-AVG-2026/Train-MPDD-Elder/Elder",
+    "split_csv": "../../samba/MPDD-AVG-2026/Train-MPDD-Elder/Elder/split_labels_train.csv",
+    "personality_npy": "../../samba/MPDD-AVG-2026/Train-MPDD-Elder/Elder/descriptions_embeddings_with_ids.npy",
+    "val_ratio": 0.1,
+    "seed": 42,
+    "epochs": 220,
+    "batch_size": 2,
+    "lr": 0.0001,
+    "weight_decay": 0.0001,
+    "target_t": 128,
+    "device": "cuda",
+    "hidden_dim": 64,
+    "dropout": 0.5,
+    "patience": 45,
+    "min_delta": 0.0001,
+    "num_workers": 0,
+    "checkpoints_dir": "checkpoints",
+    "logs_dir": "logs",
+    "experiment_name": "track1_elder_final6_gp_ternary"
+  }
+}
