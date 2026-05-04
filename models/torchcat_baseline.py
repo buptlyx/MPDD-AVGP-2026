@@ -8,7 +8,10 @@ import torch.nn.functional as F
 
 from .hybrid_temporal_encoder import HybridTemporalEncoder
 
-
+# 模态编码器
+# 用处：把每一个模态的时间序列编码成一个向量
+# 输入：[N, T, H]，输出:[N, H]
+# 多模态信息需要对输入进行降维处理
 class ModalityEncoder(nn.Module):
     def __init__(
         self,
@@ -25,10 +28,15 @@ class ModalityEncoder(nn.Module):
             self.pre_proj = None
             lstm_in = input_dim
         self.proj = nn.Linear(lstm_in, hidden_dim)
+        # 定义双向LSTM
         self.lstm = nn.LSTM(
+            # input_size
             hidden_dim,
+            # hidden_size
             hidden_dim // 2,
+            # layer
             num_layers=1,
+            # batch是否放在第一维
             batch_first=True,
             bidirectional=True,
         )
@@ -41,9 +49,11 @@ class ModalityEncoder(nn.Module):
         x = F.relu(self.proj(x))
         x = self.dropout(x)
         x, _ = self.lstm(x)
+        # 平均池化
         return self.norm(x.mean(dim=1))
 
-
+# 人格特质编码器
+# 用处：把人格特质的1024维向量编码成一个64维向量
 class PersonalityEncoder(nn.Module):
     def __init__(self, input_dim: int = 1024, hidden_dim: int = 64, dropout: float = 0.3) -> None:
         super().__init__()
@@ -58,26 +68,33 @@ class PersonalityEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
-
+# Baseline模型
 class TorchcatBaseline(nn.Module):
+    # 预定义每一个子赛道的模态组合
     SUBTRACKS = {
         "A-V+P": ["audio", "video", "personality"],
         "A-V-G+P": ["audio", "video", "gait", "personality"],
         "G+P": ["gait", "personality"],
     }
+    # 支持两种编码器：普通的双向LSTM和混合注意力编码器
     ENCODER_TYPES = {"bilstm_mean", "hybrid_attn"}
 
     def __init__(
         self,
+        # 赛道选择
         subtrack: str = "A-V-G+P",
+        # 分类任务数
         num_classes: int = 3,
+        # 是否是回归任务（是否使用回归头）
         is_regression: bool = False,
         use_regression_head: bool = False,
+        # 每个模态的输入维度和编码器的隐藏层维度
         audio_dim: int = 64,
         video_dim: int = 1000,
         gait_dim: int = 12,
         hidden_dim: int = 64,
         dropout: float = 0.3,
+        # 编码器的类型选择
         encoder_type: str = "bilstm_mean",
     ) -> None:
         super().__init__()
@@ -107,17 +124,21 @@ class TorchcatBaseline(nn.Module):
                 else ModalityEncoder(video_dim, hidden_dim, dropout, pre_dim=pre_video)
             )
         if "gait" in self.modalities:
+            # 步态维度较小，使用结构简单的编码器
             self.gait_enc = ModalityEncoder(gait_dim, hidden_dim, dropout)
         if "personality" in self.modalities:
+            # personality不是时序数据，直接使用全连接神经网络
             self.pers_enc = PersonalityEncoder(1024, hidden_dim, dropout)
-
+        # 融合层：把所有模态的编码结果拼接起来进行分类
         fused_dim = hidden_dim * len(self.modalities)
+        # 分类头
         self.classifier = nn.Sequential(
             nn.Linear(fused_dim, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, 1 if is_regression else num_classes),
         )
+        # 可选回归头
         if use_regression_head:
             self.regressor = nn.Sequential(
                 nn.Linear(fused_dim, hidden_dim),

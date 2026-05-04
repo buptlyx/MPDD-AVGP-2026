@@ -1,8 +1,8 @@
 {
   "track": "Track1",
-  "data_root": "MPDD-AVG2026/MPDD-AVG2026-trainval/Elder",
-  "split_csv": "MPDD-AVG2026/MPDD-AVG2026-trainval/Elder/split_labels_train.csv",
-  "personality_npy": "MPDD-AVG2026/MPDD-AVG2026-trainval/Elder/descriptions_embeddings_with_ids.npy",
+  "data_root": "MPDD-AVG2026-trainval/Elder",
+  "split_csv": "MPDD-AVG2026-trainval/Elder/split_labels_train.csv",
+  "personality_npy": "MPDD-AVG2026-trainval/Elder/descriptions_embeddings_with_ids.npy",
   "checkpoints_dir": "checkpoints",
   "logs_dir": "logs",
   "task": "ternary",
