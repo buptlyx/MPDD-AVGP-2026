@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .hybrid_temporal_encoder import HybridTemporalEncoder
-
+# test
 # 模态编码器
 # 用处：把每一个模态的时间序列编码成一个向量
 # 输入：[N, T, H]，输出:[N, H]
