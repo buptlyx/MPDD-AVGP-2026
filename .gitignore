@@ -1,5 +1,6 @@
 /MPDD-AVG2026-trainval
 /MPDD-AVG2026-test
+/MPDD-AVG2026-raw
 /logs
 /checkpoints
 /.hfd
