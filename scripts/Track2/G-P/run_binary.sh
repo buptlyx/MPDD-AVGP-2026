@@ -21,9 +21,9 @@ TARGET_T="${TARGET_T:-128}"
   --task binary \
   --subtrack G+P \
   --encoder_type bilstm_mean \
-  --data_root MPDD-AVG-2026-trainval/Young \
-  --split_csv MPDD-AVG-2026-trainval/Young/split_labels_train.csv \
-  --personality_npy MPDD-AVG-2026-trainval/Young/descriptions_embeddings_with_ids.npy \
+  --data_root MPDD-AVG2026-trainval/Young \
+  --split_csv MPDD-AVG2026-trainval/Young/split_labels_train.csv \
+  --personality_npy MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy \
   --seed "$SEED" \
   --epochs "$EPOCHS" \
   --batch_size "$BATCH_SIZE" \

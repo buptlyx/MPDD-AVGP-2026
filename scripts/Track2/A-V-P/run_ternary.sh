@@ -28,9 +28,9 @@ for AUDIO_FEATURE in "${AUDIO_FEATURES[@]}"; do
       --encoder_type bilstm_mean \
       --audio_feature "$AUDIO_FEATURE" \
       --video_feature "$VIDEO_FEATURE" \
-      --data_root MPDD-AVG-2026-trainval/Young \
-      --split_csv MPDD-AVG-2026-trainval/Young/split_labels_train.csv \
-      --personality_npy MPDD-AVG-2026-trainval/Young/descriptions_embeddings_with_ids.npy \
+      --data_root MPDD-AVG2026-trainval/Young \
+      --split_csv MPDD-AVG2026-trainval/Young/split_labels_train.csv \
+      --personality_npy MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy \
       --seed "$SEED" \
       --epochs "$EPOCHS" \
       --batch_size "$BATCH_SIZE" \
