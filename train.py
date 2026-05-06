@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from dataset import REGRESSION_TASK, MPDDElderDataset, collate_batch, infer_input_dims, resolve_project_path
 from metrics import evaluate_model
@@ -66,6 +66,14 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--checkpoints_dir", default=defaults["checkpoints_dir"])
     parser.add_argument("--logs_dir", default=defaults["logs_dir"])
     parser.add_argument("--experiment_name", default="")
+    parser.add_argument(
+        "--selection_metric",
+        default=defaults.get("selection_metric", "auto"),
+        choices=["auto", "f1", "acc", "kappa", "ccc", "rmse", "mae", "loss"],
+    )
+    parser.add_argument("--cls_loss_weight", type=float, default=defaults.get("cls_loss_weight", 1.0))
+    parser.add_argument("--reg_loss_weight", type=float, default=defaults.get("reg_loss_weight", 1.0))
+    parser.add_argument("--weighted_sampler", action="store_true", default=bool(defaults.get("weighted_sampler", False)))
     return parser
 
 
@@ -163,8 +171,27 @@ def summarize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in metrics.items() if key not in METRIC_ARRAY_KEYS}
 
 
-def get_selection_metric_name(task: str) -> str:
+def get_selection_metric_name(task: str, requested_metric: str = "auto") -> str:
+    if requested_metric != "auto":
+        return requested_metric
     return "ccc" if task == REGRESSION_TASK else "f1"
+
+
+def get_selection_score(metrics: dict[str, Any], metric_name: str) -> float:
+    value = float(metrics.get(metric_name, 0.0))
+    if metric_name in {"loss", "rmse", "mae"}:
+        return -value
+    return value
+
+
+def build_weighted_sampler(labels: list[int]) -> WeightedRandomSampler:
+    counts = np.bincount(np.asarray(labels, dtype=np.int64)).astype(np.float64)
+    weights = np.asarray([1.0 / max(counts[label], 1.0) for label in labels], dtype=np.float64)
+    return WeightedRandomSampler(
+        weights=torch.as_tensor(weights, dtype=torch.double),
+        num_samples=len(weights),
+        replacement=True,
+    )
 
 
 def main() -> None:
@@ -216,10 +243,13 @@ def main() -> None:
         target_t=args.target_t,
     )
 
+    train_labels = [int(sample["label"]) for sample in train_dataset.samples]
+    train_sampler = build_weighted_sampler(train_labels) if args.weighted_sampler else None
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=train_sampler is None,
+        sampler=train_sampler,
         collate_fn=collate_batch,
         num_workers=args.num_workers,
     )
@@ -248,12 +278,12 @@ def main() -> None:
     model = TorchcatBaseline(**model_kwargs).to(device)
 
     class_weights = build_class_weights(
-        [int(sample["label"]) for sample in train_dataset.samples],
+        train_labels,
         num_classes=num_classes,
         device=device,
     )
     criterion = (nn.CrossEntropyLoss(weight=class_weights), nn.MSELoss())
-    selection_metric_name = get_selection_metric_name(args.task)
+    selection_metric_name = get_selection_metric_name(args.task, args.selection_metric)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, args.epochs))
@@ -261,9 +291,13 @@ def main() -> None:
     logger.info("Experiment: %s", experiment_name)
     logger.info("Device: %s", device)
     logger.info("Train/Val: %d / %d", len(train_dataset), len(val_dataset))
+    logger.info(
+        "Selection metric: %s | loss weights cls=%.4f reg=%.4f | weighted_sampler=%s",
+        selection_metric_name, args.cls_loss_weight, args.reg_loss_weight, args.weighted_sampler,
+    )
 
     history_rows: list[dict[str, Any]] = []
-    best_score = -1.0
+    best_score = float("-inf")
     best_epoch = 0
     best_val_metrics: dict[str, Any] | None = None
     best_checkpoint_path = checkpoints_dir / f"best_model_{timestamp}.pth"
@@ -285,7 +319,9 @@ def main() -> None:
             criterion_cls, criterion_reg = criterion
             phq9 = batch["phq9"].to(device)
             logits, reg_out = outputs
-            loss = criterion_cls(logits, labels) + criterion_reg(reg_out, phq9)
+            loss_cls = criterion_cls(logits, labels)
+            loss_reg = criterion_reg(reg_out, phq9)
+            loss = args.cls_loss_weight * loss_cls + args.reg_loss_weight * loss_reg
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
@@ -317,12 +353,13 @@ def main() -> None:
         )
         history_rows.append(history_row)
 
-        current_score = float(val_metrics["selection_score"])
+        current_score = get_selection_score(val_metrics, selection_metric_name)
         if current_score > best_score + args.min_delta:
             best_score = current_score
             best_epoch = epoch
             best_val_metrics = val_metrics
             best_val_summary = summarize_metrics(val_metrics)
+            best_val_summary["selection_score"] = current_score
             epochs_without_improve = 0
             torch.save(
                 {
