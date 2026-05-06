@@ -1,6 +1,7 @@
 /MPDD-AVG2026-trainval
 /MPDD-AVG2026-test
 /MPDD-AVG2026-raw
+/checkpoints
 /logs
 /.hfd
 /__pycache__

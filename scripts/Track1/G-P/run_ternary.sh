@@ -24,13 +24,11 @@ PATIENCE="${PATIENCE:-90}"
 MIN_DELTA="${MIN_DELTA:-1e-4}"
 TARGET_T="${TARGET_T:-128}"
 ENCODER_TYPE="${ENCODER_TYPE:-bilstm_mean}"
-AUDIO_FEATURE="${AUDIO_FEATURE:-mfcc}"
-VIDEO_FEATURE="${VIDEO_FEATURE:-densenet}"
 SELECTION_METRIC="${SELECTION_METRIC:-kappa}"
 CLS_LOSS_WEIGHT="${CLS_LOSS_WEIGHT:-3.0}"
 REG_LOSS_WEIGHT="${REG_LOSS_WEIGHT:-0.1}"
 WEIGHTED_SAMPLER="${WEIGHTED_SAMPLER:-1}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-track1_elder_tuned_avp_${AUDIO_FEATURE}_${VIDEO_FEATURE}_binary_kappa_v1}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-track1_elder_tuned_gp_ternary_kappa_v1}"
 
 WEIGHTED_SAMPLER_ARG=""
 case "$WEIGHTED_SAMPLER" in
@@ -39,15 +37,13 @@ case "$WEIGHTED_SAMPLER" in
     ;;
 esac
 
-echo "[Track1][A-V+P][binary] seed=${SEED} target_t=${TARGET_T}"
+echo "[Track1][G+P][ternary] seed=${SEED} target_t=${TARGET_T}"
 cd "$PROJECT_ROOT"
 "$PYTHON_BIN" "$PROJECT_ROOT/train.py" \
   --track Track1 \
-  --task binary \
-  --subtrack "A-V+P" \
+  --task ternary \
+  --subtrack "G+P" \
   --encoder_type "$ENCODER_TYPE" \
-  --audio_feature "$AUDIO_FEATURE" \
-  --video_feature "$VIDEO_FEATURE" \
   --experiment_name "$EXPERIMENT_NAME" \
   --data_root "$DATA_ROOT" \
   --split_csv "$SPLIT_CSV" \

@@ -8,9 +8,9 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 DEVICE="${DEVICE:-cuda}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-checkpoints}"
 LOGS_DIR="${LOGS_DIR:-logs}"
-DATA_ROOT="${DATA_ROOT:-MPDD-AVG2026-trainval/Elder}"
-SPLIT_CSV="${SPLIT_CSV:-MPDD-AVG2026-trainval/Elder/split_labels_train.csv}"
-PERSONALITY_NPY="${PERSONALITY_NPY:-MPDD-AVG2026-trainval/Elder/descriptions_embeddings_with_ids.npy}"
+DATA_ROOT="${DATA_ROOT:-MPDD-AVG2026-trainval/Young}"
+SPLIT_CSV="${SPLIT_CSV:-MPDD-AVG2026-trainval/Young/split_labels_train.csv}"
+PERSONALITY_NPY="${PERSONALITY_NPY:-MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy}"
 SEED="${SEED:-42}"
 VAL_RATIO="${VAL_RATIO:-0.1}"
 EPOCHS="${EPOCHS:-320}"
@@ -30,7 +30,7 @@ SELECTION_METRIC="${SELECTION_METRIC:-kappa}"
 CLS_LOSS_WEIGHT="${CLS_LOSS_WEIGHT:-3.0}"
 REG_LOSS_WEIGHT="${REG_LOSS_WEIGHT:-0.1}"
 WEIGHTED_SAMPLER="${WEIGHTED_SAMPLER:-1}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-track1_elder_tuned_avp_${AUDIO_FEATURE}_${VIDEO_FEATURE}_binary_kappa_v1}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-track2_young_tuned_avp_${AUDIO_FEATURE}_${VIDEO_FEATURE}_ternary_kappa_v1}"
 
 WEIGHTED_SAMPLER_ARG=""
 case "$WEIGHTED_SAMPLER" in
@@ -39,11 +39,11 @@ case "$WEIGHTED_SAMPLER" in
     ;;
 esac
 
-echo "[Track1][A-V+P][binary] seed=${SEED} target_t=${TARGET_T}"
+echo "[Track2][A-V+P][ternary] seed=${SEED} target_t=${TARGET_T}"
 cd "$PROJECT_ROOT"
 "$PYTHON_BIN" "$PROJECT_ROOT/train.py" \
-  --track Track1 \
-  --task binary \
+  --track Track2 \
+  --task ternary \
   --subtrack "A-V+P" \
   --encoder_type "$ENCODER_TYPE" \
   --audio_feature "$AUDIO_FEATURE" \

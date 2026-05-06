@@ -119,7 +119,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--task", required=True, choices=["binary", "ternary", REGRESSION_TASK])
     parser.add_argument("--regression_label", default="label2", choices=["label2", "label3"])
     parser.add_argument("--split_csv", default="MPDD-AVG2026/MPDD-AVG2026-trainval/Elder/split_labels_train.csv")
-    parser.add_argument("--val_ratio", type=float, default=0.1)
+    parser.add_argument("--val_ratio", type=float, default=0.2)
     parser.add_argument("--save_path", default="")
     return parser.parse_args()
 
