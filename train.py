@@ -17,6 +17,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from dataset import REGRESSION_TASK, MPDDElderDataset, collate_batch, infer_input_dims, resolve_project_path
+from device_utils import build_model_on_available_device, clear_cuda_cache
 from metrics import evaluate_model
 from models import TorchcatBaseline
 from train_val_split import create_train_val_split
@@ -207,7 +208,6 @@ def main() -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
 
     logger = setup_logger(log_dir / f"result_{timestamp}.log")
-    device = torch.device(args.device if args.device != "cuda" or torch.cuda.is_available() else "cpu")
 
     split_payload = create_train_val_split(
         split_csv=args.split_csv,
@@ -275,7 +275,37 @@ def main() -> None:
         "dropout": args.dropout,
         "encoder_type": args.encoder_type,
     }
-    model = TorchcatBaseline(**model_kwargs).to(device)
+
+    def preflight_training_batch(model: nn.Module, candidate_device: torch.device) -> None:
+        model.train()
+        criterion_cls = nn.CrossEntropyLoss(
+            weight=build_class_weights(train_labels, num_classes=num_classes, device=candidate_device)
+        )
+        criterion_reg = nn.MSELoss()
+        batch_size = min(args.batch_size, len(train_dataset))
+        batch = collate_batch([train_dataset[index] for index in range(batch_size)])
+        labels = batch["label"].to(candidate_device)
+        outputs = model(
+            audio=batch["audio"].to(candidate_device) if "audio" in batch else None,
+            video=batch["video"].to(candidate_device) if "video" in batch else None,
+            gait=batch["gait"].to(candidate_device) if "gait" in batch else None,
+            personality=batch["personality"].to(candidate_device),
+            pair_mask=batch["pair_mask"].to(candidate_device) if "pair_mask" in batch else None,
+        )
+        phq9 = batch["phq9"].to(candidate_device)
+        logits, reg_out = outputs
+        loss = args.cls_loss_weight * criterion_cls(logits, labels) + args.reg_loss_weight * criterion_reg(reg_out, phq9)
+        loss.backward()
+        model.zero_grad(set_to_none=True)
+        del batch, labels, outputs, phq9, logits, reg_out, loss
+        clear_cuda_cache()
+
+    model, device = build_model_on_available_device(
+        lambda: TorchcatBaseline(**model_kwargs),
+        args.device,
+        logger,
+        preflight=preflight_training_batch,
+    )
 
     class_weights = build_class_weights(
         train_labels,

@@ -15,6 +15,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from dataset import REGRESSION_TASK, MPDDElderDataset, collate_batch, load_task_maps, resolve_project_path
+from device_utils import build_model_on_available_device
 from metrics import evaluate_model
 from models import TorchcatBaseline
 
@@ -143,7 +144,6 @@ def main() -> None:
     log_dir = resolve_track_task_dir(logs_root, track, subtrack, task, experiment_name)
     log_dir.mkdir(parents=True, exist_ok=True)
     logger = setup_logger()
-    device = torch.device(args.device if args.device != "cuda" or torch.cuda.is_available() else "cpu")
 
     task_maps = load_task_maps(split_csv, task, regression_label or "label2")
     test_dataset = MPDDElderDataset(
@@ -167,7 +167,11 @@ def main() -> None:
     )
 
     model_kwargs = dict(require_checkpoint_value(checkpoint, "model_kwargs"))
-    model = TorchcatBaseline(**model_kwargs).to(device)
+    model, device = build_model_on_available_device(
+        lambda: TorchcatBaseline(**model_kwargs),
+        args.device,
+        logger,
+    )
     model.load_state_dict(require_checkpoint_value(checkpoint, "model_state"))
     use_regression_head = bool(model_kwargs.get("use_regression_head", False))
     is_regression_task = task == REGRESSION_TASK
