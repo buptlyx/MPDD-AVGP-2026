@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import logging
+import math
 import os
 import sys
 import time
@@ -45,6 +46,8 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--batch_size", type=int, default=defaults["batch_size"])
     parser.add_argument("--num_workers", type=int, default=defaults["num_workers"])
     parser.add_argument("--logs_dir", default=defaults["logs_dir"])
+    parser.add_argument("--sample_csv", default="", help="Optional CodaBench sample CSV with an id column.")
+    parser.add_argument("--prediction_csv", default="", help="Optional output path for binary.csv or ternary.csv.")
     return parser
 
 
@@ -101,23 +104,125 @@ def summarize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in metrics.items() if key not in METRIC_ARRAY_KEYS}
 
 
+def read_sample_ids(sample_csv: str | Path) -> list[int]:
+    csv_path = resolve_project_path(remap_repo_path(sample_csv))
+    with open(csv_path, "r", encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows or "id" not in rows[0]:
+        raise ValueError(f"Sample CSV must contain an id column: {csv_path}")
+    return [int(row["id"]) for row in rows]
+
+
+def infer_test_ids_from_data_root(data_root: str | Path) -> list[int]:
+    root = resolve_project_path(remap_repo_path(data_root))
+    if not root.exists():
+        raise FileNotFoundError(f"Cannot infer test IDs because data_root does not exist: {root}")
+
+    ids: set[int] = set()
+    for path in root.rglob("*"):
+        if path.is_dir() and path.name.isdigit():
+            ids.add(int(path.name))
+    if not ids:
+        raise RuntimeError(f"No numeric sample ID directories found under: {root}")
+    return sorted(ids)
+
+
+def build_unlabeled_task_maps(sample_ids: list[int]) -> dict[str, Any]:
+    label_map = {sample_id: 0 for sample_id in sample_ids}
+    return {
+        "test_map": label_map,
+        "source_split_map": {sample_id: "test" for sample_id in sample_ids},
+        "test_phq_map": {sample_id: 0.0 for sample_id in sample_ids},
+    }
+
+
+def load_test_task_maps(
+    split_csv: str | Path,
+    task: str,
+    regression_label: str,
+    data_root: str | Path,
+    sample_csv: str | Path = "",
+) -> dict[str, Any]:
+    split_path = resolve_project_path(remap_repo_path(split_csv)) if split_csv else None
+    if split_path is not None and split_path.exists():
+        return load_task_maps(split_path, task, regression_label)
+
+    sample_ids = read_sample_ids(sample_csv) if sample_csv else infer_test_ids_from_data_root(data_root)
+    return build_unlabeled_task_maps(sample_ids)
+
+
+def inverse_normalize_phq(value: float) -> float:
+    value = float(value)
+    if value <= 0.0:
+        return 0.0
+    if value >= math.log1p(27.0):
+        return 27.0
+    return float(math.expm1(value))
+
+
+def write_prediction_csv(metrics: dict[str, Any], task: str, output_path: str | Path) -> str:
+    output_path = resolve_project_path(remap_repo_path(output_path))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if task == "binary":
+        pred_column = "binary_pred"
+    elif task == "ternary":
+        pred_column = "ternary_pred"
+    else:
+        raise ValueError(f"Prediction CSV is only supported for binary/ternary tasks, got task={task}")
+
+    class_preds = metrics.get("class_pred", metrics.get("y_pred", []))
+    phq_preds = metrics.get("phq_pred", metrics.get("y_pred", []))
+    rows = []
+    for sample_id, class_pred, phq_pred in zip(metrics["ids"], class_preds, phq_preds):
+        rows.append(
+            {
+                "id": int(sample_id),
+                pred_column: int(class_pred),
+                "phq9_pred": f"{inverse_normalize_phq(float(phq_pred)):.6f}",
+            }
+        )
+
+    with open(output_path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["id", pred_column, "phq9_pred"])
+        writer.writeheader()
+        writer.writerows(rows)
+    return to_project_relative_path(output_path)
+
+
 def remap_repo_path(path_like: str | Path) -> str:
     path = Path(path_like)
-    if not path.is_absolute():
-        return path.as_posix()
     if path.exists():
+        resolved_path = path.resolve()
         try:
-            return path.relative_to(PROJECT_ROOT).as_posix()
+            return resolved_path.relative_to(PROJECT_ROOT).as_posix()
         except ValueError:
-            return str(path)
+            return str(resolved_path)
 
-    for anchor in ("MPDD-AVG2026", "checkpoints", "logs"):
+    anchors = (
+        "MPDD-AVG2026-test",
+        "MPDD-AVG2026-trainval",
+        "MPDD-AVG2026-raw",
+        "make_submission_forcodabench",
+        "checkpoints",
+        "logs",
+        "predictions",
+    )
+    for anchor in anchors:
         if anchor not in path.parts:
             continue
         anchor_index = path.parts.index(anchor)
         candidate = PROJECT_ROOT.joinpath(*path.parts[anchor_index:])
-        if candidate.exists() or anchor == "logs":
+        if candidate.exists() or anchor in {"logs", "predictions"}:
             return candidate.relative_to(PROJECT_ROOT).as_posix()
+
+    if not path.is_absolute() and path.parts and path.parts[0] == PROJECT_ROOT.name:
+        candidate = PROJECT_ROOT.joinpath(*path.parts[1:])
+        if candidate.exists():
+            return candidate.relative_to(PROJECT_ROOT).as_posix()
+
+    if not path.is_absolute():
+        return path.as_posix()
     return str(path)
 
 
@@ -145,7 +250,13 @@ def main() -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     logger = setup_logger()
 
-    task_maps = load_task_maps(split_csv, task, regression_label or "label2")
+    task_maps = load_test_task_maps(
+        split_csv=split_csv,
+        task=task,
+        regression_label=regression_label or "label2",
+        data_root=data_root,
+        sample_csv=args.sample_csv,
+    )
     test_dataset = MPDDElderDataset(
         data_root=data_root,
         label_map=task_maps["test_map"],
@@ -179,6 +290,12 @@ def main() -> None:
     metrics = evaluate_model(model, test_loader, criterion, device, task)
     metric_summary = summarize_metrics(metrics)
     checkpoint_rel = to_project_relative_path(checkpoint_path)
+    prediction_csv_rel = ""
+    prediction_csv_path = args.prediction_csv
+    if not prediction_csv_path and task in {"binary", "ternary"}:
+        prediction_csv_path = log_dir / f"{task}_{checkpoint_path.stem}.csv"
+    if prediction_csv_path:
+        prediction_csv_rel = write_prediction_csv(metrics, task, prediction_csv_path)
 
     result_payload = {
         "checkpoint": checkpoint_rel,
@@ -190,7 +307,7 @@ def main() -> None:
         "video_feature": video_feature,
         "regression_label": regression_label if is_regression_task else "",
         "metrics": metric_summary,
-        "predictions_path": "",
+        "predictions_path": prediction_csv_rel,
     }
     result_path = log_dir / f"test_result_only_{timestamp}.json"
     with open(result_path, "w", encoding="utf-8") as handle:
@@ -206,7 +323,7 @@ def main() -> None:
         "audio_feature": audio_feature,
         "video_feature": video_feature,
         "checkpoint": checkpoint_rel,
-        "predictions_path": "",
+        "predictions_path": prediction_csv_rel,
         "Macro-F1": f"{metrics.get('f1', 0.0):.6f}",
         "ACC": f"{metrics.get('acc', 0.0):.6f}",
         "Kappa": f"{metrics.get('kappa', 0.0):.6f}",
@@ -218,6 +335,8 @@ def main() -> None:
     if is_regression_task:
         summary_row["regression_label"] = regression_label
     append_summary_row(log_dir / f"{experiment_name}_test_only.csv", summary_row)
+    if prediction_csv_rel:
+        logger.info("Prediction CSV saved to: %s", prediction_csv_rel)
     logger.info("Test-only metrics saved to: %s", to_project_relative_path(result_path))
 
 
