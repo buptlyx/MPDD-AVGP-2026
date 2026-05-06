@@ -12,7 +12,7 @@ CHECKPOINT_DIR="${CHECKPOINT_DIR:-checkpoints/Track2/A-V-P/ternary}"
 DATA_ROOT="${DATA_ROOT:-$(dataset_root_for_split "Young")}"
 SPLIT_CSV="${SPLIT_CSV:-$(split_csv_for_split "Young")}"
 PERSONALITY_NPY="${PERSONALITY_NPY:-$(resolve_personality_npy "Young")}"
-LOGS_DIR="${LOGS_DIR:-logs/test_scripts}"
+LOGS_DIR="${LOGS_DIR:-logs/test/test_scripts}"
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   echo "Python interpreter not found: $PYTHON_BIN" >&2

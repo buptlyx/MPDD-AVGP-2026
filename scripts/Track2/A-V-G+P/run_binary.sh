@@ -7,7 +7,7 @@ PROJECT_ROOT=$(CDPATH= cd "$SCRIPT_DIR/../../.." && pwd)
 PYTHON_BIN="${PYTHON_BIN:-python}"
 DEVICE="${DEVICE:-cuda}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-checkpoints}"
-LOGS_DIR="${LOGS_DIR:-logs}"
+LOGS_DIR="${LOGS_DIR:-logs/train}"
 DATA_ROOT="${DATA_ROOT:-MPDD-AVG2026-trainval/Young}"
 SPLIT_CSV="${SPLIT_CSV:-MPDD-AVG2026-trainval/Young/split_labels_train.csv}"
 PERSONALITY_NPY="${PERSONALITY_NPY:-MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy}"
