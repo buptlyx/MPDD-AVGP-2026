@@ -28,6 +28,18 @@ SUBTRACK_LOG_DIRS = {
     "G+P": "G-P",
 }
 METRIC_ARRAY_KEYS = {"ids", "y_true", "y_pred", "class_true", "class_pred", "phq_true", "phq_pred"}
+ABLATION_AUTO_SUBTRACKS = {
+    "G+P": ("gait", "personality"),
+}
+SUMMARY_METRICS = (
+    ("ScoreTrack", "scoretrack"),
+    ("Macro-F1", "f1"),
+    ("ACC", "acc"),
+    ("Kappa", "kappa"),
+    ("CCC", "ccc"),
+    ("RMSE", "rmse"),
+    ("MAE", "mae"),
+)
 
 
 def load_config(config_path: str | Path) -> dict[str, Any]:
@@ -51,6 +63,11 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--score_alpha", type=float, default=defaults.get("score_alpha"))
     parser.add_argument("--score_beta", type=float, default=defaults.get("score_beta"))
     parser.add_argument("--score_gamma", type=float, default=defaults.get("score_gamma"))
+    parser.add_argument(
+        "--ablation_modes",
+        default="auto",
+        help="Comma-separated modality ablations to run, e.g. gait,personality. Use auto for G+P, none to disable.",
+    )
     return parser
 
 
@@ -105,6 +122,66 @@ def require_checkpoint_value(checkpoint: dict[str, Any], key: str) -> Any:
 
 def summarize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in metrics.items() if key not in METRIC_ARRAY_KEYS}
+
+
+def resolve_ablation_modes(subtrack: str, requested_modes: str) -> list[str]:
+    requested_modes = str(requested_modes or "auto").strip().lower()
+    if requested_modes in {"", "auto"}:
+        return list(ABLATION_AUTO_SUBTRACKS.get(subtrack, ()))
+    if requested_modes in {"none", "off", "false", "0"}:
+        return []
+
+    modes: list[str] = []
+    for item in requested_modes.split(","):
+        mode = item.strip().lower()
+        if not mode or mode == "all":
+            continue
+        if mode not in {"audio", "video", "gait", "personality"}:
+            raise ValueError(f"Unsupported ablation mode: {mode}")
+        if mode not in modes:
+            modes.append(mode)
+    return modes
+
+
+def format_metric_value(metrics: dict[str, Any], key: str) -> str:
+    value = metrics.get(key, 0.0)
+    if value == "":
+        return ""
+    return f"{float(value):.6f}"
+
+
+def add_prefixed_metric_fields(row: dict[str, Any], prefix: str, metrics: dict[str, Any]) -> None:
+    for display_name, metric_key in SUMMARY_METRICS:
+        row[f"{prefix}_{display_name}"] = format_metric_value(metrics, metric_key)
+
+
+def add_ablation_effect_fields(
+    row: dict[str, Any],
+    metrics: dict[str, Any],
+    ablation_metrics: dict[str, dict[str, Any]],
+) -> None:
+    if "personality" in ablation_metrics:
+        gait_effect = metrics.get("scoretrack", 0.0) - ablation_metrics["personality"].get("scoretrack", 0.0)
+        row["gait_effect_ScoreTrack"] = f"{gait_effect:.6f}"
+    if "gait" in ablation_metrics:
+        personality_effect = metrics.get("scoretrack", 0.0) - ablation_metrics["gait"].get("scoretrack", 0.0)
+        row["personality_effect_ScoreTrack"] = f"{personality_effect:.6f}"
+
+
+def summarize_ablation_effects(
+    metrics: dict[str, Any],
+    ablation_metrics: dict[str, dict[str, Any]],
+) -> dict[str, float]:
+    effects: dict[str, float] = {}
+    if "personality" in ablation_metrics:
+        effects["gait_effect_scoretrack"] = float(metrics.get("scoretrack", 0.0)) - float(
+            ablation_metrics["personality"].get("scoretrack", 0.0)
+        )
+    if "gait" in ablation_metrics:
+        effects["personality_effect_scoretrack"] = float(metrics.get("scoretrack", 0.0)) - float(
+            ablation_metrics["gait"].get("scoretrack", 0.0)
+        )
+    return effects
 
 
 def read_sample_ids(sample_csv: str | Path) -> list[int]:
@@ -311,7 +388,30 @@ def main() -> None:
         base=checkpoint.get("score_weights"),
     )
     metrics = evaluate_model(model, test_loader, criterion, device, task, score_weights)
+    ablation_metrics: dict[str, dict[str, Any]] = {}
+    for ablation_mode in resolve_ablation_modes(subtrack, args.ablation_modes):
+        ablation_metrics[ablation_mode] = evaluate_model(
+            model,
+            test_loader,
+            criterion,
+            device,
+            task,
+            score_weights,
+            only_modality=ablation_mode,
+        )
+        logger.info(
+            "%s_only ScoreTrack=%.6f Macro-F1=%.6f Kappa=%.6f CCC=%.6f",
+            ablation_mode,
+            ablation_metrics[ablation_mode].get("scoretrack", 0.0),
+            ablation_metrics[ablation_mode].get("f1", 0.0),
+            ablation_metrics[ablation_mode].get("kappa", 0.0),
+            ablation_metrics[ablation_mode].get("ccc", 0.0),
+        )
     metric_summary = summarize_metrics(metrics)
+    ablation_summary = {
+        f"{mode}_only": summarize_metrics(mode_metrics)
+        for mode, mode_metrics in ablation_metrics.items()
+    }
     checkpoint_rel = to_project_relative_path(checkpoint_path)
     prediction_csv_rel = ""
     prediction_csv_path = args.prediction_csv
@@ -331,6 +431,8 @@ def main() -> None:
         "regression_label": regression_label if is_regression_task else "",
         "score_weights": score_weights,
         "metrics": metric_summary,
+        "ablation_metrics": ablation_summary,
+        "ablation_effects": summarize_ablation_effects(metrics, ablation_metrics),
         "predictions_path": prediction_csv_rel,
     }
     result_path = log_dir / f"test_result_only_{timestamp}.json"
@@ -360,6 +462,9 @@ def main() -> None:
         "MAE": f"{metrics['mae']:.6f}",
         "R2": f"{metrics.get('r2', ''):.6f}" if is_regression_task else "",
     }
+    for ablation_mode, mode_metrics in ablation_metrics.items():
+        add_prefixed_metric_fields(summary_row, f"{ablation_mode}_only", mode_metrics)
+    add_ablation_effect_fields(summary_row, metrics, ablation_metrics)
     if is_regression_task:
         summary_row["regression_label"] = regression_label
     append_summary_row(log_dir / f"{experiment_name}_test_only.csv", summary_row)

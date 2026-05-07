@@ -111,8 +111,13 @@ def evaluate_model(
     device: torch.device,
     task: str,
     score_weights: Mapping[str, Any] | None = None,
+    only_modality: str = "all",
 ) -> dict[str, Any]:
     is_joint_regression = isinstance(criterion, (tuple, list))
+    only_modality = str(only_modality).strip().lower()
+    model_modalities = set(getattr(model, "modalities", []))
+    if only_modality != "all" and model_modalities and only_modality not in model_modalities:
+        raise ValueError(f"Cannot keep only modality={only_modality!r}; model modalities are {sorted(model_modalities)}")
     model.eval()
     total_loss = 0.0
     total_cls_loss = 0.0
@@ -126,11 +131,23 @@ def evaluate_model(
     with torch.no_grad():
         for batch in loader:
             labels = batch["label"].to(device)
+            audio = batch["audio"].to(device) if "audio" in batch else None
+            video = batch["video"].to(device) if "video" in batch else None
+            gait = batch["gait"].to(device) if "gait" in batch else None
+            personality = batch["personality"].to(device)
+            if only_modality not in {"all", "audio"} and audio is not None:
+                audio = torch.zeros_like(audio)
+            if only_modality not in {"all", "video"} and video is not None:
+                video = torch.zeros_like(video)
+            if only_modality not in {"all", "gait"} and gait is not None:
+                gait = torch.zeros_like(gait)
+            if only_modality not in {"all", "personality"}:
+                personality = torch.zeros_like(personality)
             outputs = model(
-                audio=batch["audio"].to(device) if "audio" in batch else None,
-                video=batch["video"].to(device) if "video" in batch else None,
-                gait=batch["gait"].to(device) if "gait" in batch else None,
-                personality=batch["personality"].to(device),
+                audio=audio,
+                video=video,
+                gait=gait,
+                personality=personality,
                 pair_mask=batch["pair_mask"].to(device) if "pair_mask" in batch else None,
             )
             if is_joint_regression:
@@ -187,4 +204,5 @@ def evaluate_model(
     metrics["scoretrack"] = scoretrack(metrics, score_weights)
     metrics["loss"] = safe_float(total_loss / max(1, len(all_labels)))
     metrics["ids"] = all_ids
+    metrics["only_modality"] = only_modality
     return metrics
