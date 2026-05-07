@@ -54,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoints-dir", default=os.environ.get("CHECKPOINTS_DIR", "checkpoints"))
     parser.add_argument("--train-logs-dir", default=os.environ.get("TRAIN_LOGS_DIR", "logs/train"))
     parser.add_argument("--test-logs-dir", default=os.environ.get("TEST_LOGS_DIR", "logs/test"))
-    parser.add_argument("--output-dir", default="runs", help="Root directory for predictions and archives.")
+    parser.add_argument("--output-dir", default="runs", help="Root directory for per-run outputs.")
     parser.add_argument("--skip-train", action="store_true", help="Skip training and test existing checkpoints.")
     parser.add_argument("--skip-test", action="store_true", help="Skip test and packaging steps.")
     parser.add_argument("--dry-run", action="store_true", help="Print the planned commands without running them.")
@@ -239,6 +239,14 @@ def main() -> None:
                 [args.bash_bin, rel_posix(test_scripts[task]), "--prediction_csv", rel_posix(prediction_csv)],
                 env,
             )
+            if not prediction_csv.exists():
+                root_prediction_csv = PROJECT_ROOT / "predictions" / f"{task}.csv"
+                if root_prediction_csv.exists():
+                    raise FileNotFoundError(
+                        f"Expected {rel_posix(prediction_csv)}, but test.py wrote {rel_posix(root_prediction_csv)}. "
+                        "Please use the updated test.py path remapping."
+                    )
+                raise FileNotFoundError(f"Expected prediction CSV was not generated: {rel_posix(prediction_csv)}")
 
         make_script = PROJECT_ROOT / "make" / "make.py"
         run_command(

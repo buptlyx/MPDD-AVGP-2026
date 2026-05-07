@@ -202,6 +202,12 @@ def remap_repo_path(path_like: str | Path) -> str:
         except ValueError:
             return str(resolved_path)
 
+    if path.is_absolute():
+        try:
+            return path.resolve().relative_to(PROJECT_ROOT).as_posix()
+        except ValueError:
+            pass
+
     anchors = (
         "MPDD-AVG2026-test",
         "MPDD-AVG2026-trainval",
@@ -211,6 +217,14 @@ def remap_repo_path(path_like: str | Path) -> str:
         "logs",
         "predictions",
     )
+    if not path.is_absolute():
+        if path.parts and path.parts[0] == PROJECT_ROOT.name:
+            candidate = PROJECT_ROOT.joinpath(*path.parts[1:])
+            if candidate.exists():
+                return candidate.relative_to(PROJECT_ROOT).as_posix()
+        if not path.parts or path.parts[0] not in anchors:
+            return path.as_posix()
+
     for anchor in anchors:
         if anchor not in path.parts:
             continue
