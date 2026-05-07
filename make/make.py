@@ -156,7 +156,7 @@ def main() -> None:
 
     parser.add_argument("--binary_csv", required=True, help="Path to binary.csv")
     parser.add_argument("--ternary_csv", required=True, help="Path to ternary.csv")
-    parser.add_argument("--output_dir", default="submission_output", help="Output directory")
+    parser.add_argument("--output_dir", default="predictions", help="Output directory for submission.zip")
 
     parser.add_argument(
         "--binary_sample",

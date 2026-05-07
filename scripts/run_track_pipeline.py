@@ -58,6 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-train", action="store_true", help="Skip training and test existing checkpoints.")
     parser.add_argument("--skip-test", action="store_true", help="Skip test and packaging steps.")
     parser.add_argument("--dry-run", action="store_true", help="Print the planned commands without running them.")
+    parser.add_argument("--archive-artifacts", action="store_true", help="Also zip checkpoints, logs, and predictions.")
     parser.add_argument("--keep-going", action="store_true", help="Continue with ternary if binary fails, then fail at the end.")
     return parser.parse_args()
 
@@ -107,7 +108,6 @@ def write_artifact_archive(
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.write(manifest_path, arcname="manifest.json")
         add_directory_to_zip(zf, run_root / "predictions", Path("predictions"))
-        add_directory_to_zip(zf, run_root / "submission", Path("submission"))
         for task, path in checkpoints.items():
             add_directory_to_zip(zf, path, Path("checkpoints") / task)
         for task, path in train_logs.items():
@@ -123,7 +123,6 @@ def main() -> None:
     run_id = args.run_id or time.strftime("%Y%m%d_%H%M%S", time.localtime())
     run_root = (PROJECT_ROOT / args.output_dir / f"{args.track}_{subtrack_dir}_{run_id}").resolve()
     predictions_dir = run_root / "predictions"
-    submission_dir = run_root / "submission"
 
     tasks = ("binary", "ternary")
     experiments = {
@@ -190,12 +189,11 @@ def main() -> None:
                 "--ternary_csv",
                 rel_posix(predictions_dir / "ternary.csv"),
                 "--output_dir",
-                rel_posix(submission_dir),
+                rel_posix(predictions_dir),
             )
         return
 
     predictions_dir.mkdir(parents=True, exist_ok=True)
-    submission_dir.mkdir(parents=True, exist_ok=True)
 
     common_env = os.environ.copy()
     common_env.update(
@@ -252,10 +250,13 @@ def main() -> None:
                 "--ternary_csv",
                 rel_posix(predictions_dir / "ternary.csv"),
                 "--output_dir",
-                rel_posix(submission_dir),
+                rel_posix(predictions_dir),
             ],
             common_env,
         )
+        submission_zip = predictions_dir / "submission.zip"
+        if not submission_zip.exists():
+            raise FileNotFoundError(f"Expected submission zip was not generated: {submission_zip}")
 
     manifest = {
         "run_id": run_id,
@@ -268,19 +269,19 @@ def main() -> None:
         "train_log_dirs": {task: rel_posix(path) for task, path in train_logs.items()},
         "test_log_dirs": {task: rel_posix(path) for task, path in test_logs.items()},
         "predictions_dir": rel_posix(predictions_dir),
-        "submission_dir": rel_posix(submission_dir),
+        "submission_zip": rel_posix(predictions_dir / "submission.zip"),
     }
     manifest_path = run_root / "manifest.json"
     with open(manifest_path, "w", encoding="utf-8") as handle:
         json.dump(manifest, handle, indent=2, ensure_ascii=False)
 
-    archive_path = run_root / f"{args.track}_{subtrack_dir}_{run_id}_artifacts.zip"
-    write_artifact_archive(archive_path, manifest_path, run_root, checkpoints, train_logs, test_logs)
-
     print("\nPipeline finished.", flush=True)
     if not args.skip_test:
-        print(f"Submission zip: {submission_dir / 'submission.zip'}", flush=True)
-    print(f"Artifact archive: {archive_path}", flush=True)
+        print(f"Prediction folder zip: {predictions_dir / 'submission.zip'}", flush=True)
+    if args.archive_artifacts:
+        archive_path = run_root / f"{args.track}_{subtrack_dir}_{run_id}_artifacts.zip"
+        write_artifact_archive(archive_path, manifest_path, run_root, checkpoints, train_logs, test_logs)
+        print(f"Artifact archive: {archive_path}", flush=True)
 
 
 if __name__ == "__main__":
