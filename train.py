@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from dataset import REGRESSION_TASK, MPDDElderDataset, collate_batch, infer_input_dims, resolve_project_path
 from device_utils import build_model_on_available_device, clear_cuda_cache
-from metrics import evaluate_model
+from metrics import DEFAULT_SCORE_WEIGHTS, build_score_weights, evaluate_model
 from models import TorchcatBaseline
 from train_val_split import create_train_val_split
 
@@ -70,8 +70,11 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument(
         "--selection_metric",
         default=defaults.get("selection_metric", "auto"),
-        choices=["auto", "f1", "acc", "kappa", "ccc", "rmse", "mae", "loss"],
+        choices=["auto", "f1", "acc", "kappa", "ccc", "rmse", "mae", "loss", "scoretrack"],
     )
+    parser.add_argument("--score_alpha", type=float, default=defaults.get("score_alpha", DEFAULT_SCORE_WEIGHTS["alpha"]))
+    parser.add_argument("--score_beta", type=float, default=defaults.get("score_beta", DEFAULT_SCORE_WEIGHTS["beta"]))
+    parser.add_argument("--score_gamma", type=float, default=defaults.get("score_gamma", DEFAULT_SCORE_WEIGHTS["gamma"]))
     parser.add_argument("--cls_loss_weight", type=float, default=defaults.get("cls_loss_weight", 1.0))
     parser.add_argument("--reg_loss_weight", type=float, default=defaults.get("reg_loss_weight", 1.0))
     parser.add_argument("--weighted_sampler", action="store_true", default=bool(defaults.get("weighted_sampler", False)))
@@ -314,6 +317,7 @@ def main() -> None:
     )
     criterion = (nn.CrossEntropyLoss(weight=class_weights), nn.MSELoss())
     selection_metric_name = get_selection_metric_name(args.task, args.selection_metric)
+    score_weights = build_score_weights(args.score_alpha, args.score_beta, args.score_gamma)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, args.epochs))
@@ -324,6 +328,10 @@ def main() -> None:
     logger.info(
         "Selection metric: %s | loss weights cls=%.4f reg=%.4f | weighted_sampler=%s",
         selection_metric_name, args.cls_loss_weight, args.reg_loss_weight, args.weighted_sampler,
+    )
+    logger.info(
+        "ScoreTrack weights: alpha=%.6f beta=%.6f gamma=%.6f",
+        score_weights["alpha"], score_weights["beta"], score_weights["gamma"],
     )
 
     history_rows: list[dict[str, Any]] = []
@@ -359,10 +367,11 @@ def main() -> None:
 
         scheduler.step()
         train_loss = running_loss / max(1, len(train_dataset))
-        val_metrics = evaluate_model(model, val_loader, criterion, device, args.task)
+        val_metrics = evaluate_model(model, val_loader, criterion, device, args.task, score_weights)
         history_row = {
             "epoch": epoch,
             "train_loss": round(train_loss, 6),
+            "val_scoretrack": round(val_metrics["scoretrack"], 6),
             "val_loss": round(val_metrics["loss"], 6),
             "val_ccc": round(val_metrics["ccc"], 6),
             "val_rmse": round(val_metrics["rmse"], 6),
@@ -377,9 +386,10 @@ def main() -> None:
             history_row["val_r2"] = round(val_metrics["r2"], 6)
         logger.info(
             "Epoch %d/%d | train_loss=%.6f | val_f1=%.6f val_acc=%.6f "
-            "val_kappa=%.6f val_ccc=%.6f val_rmse=%.6f val_mae=%.6f",
+            "val_kappa=%.6f val_ccc=%.6f val_scoretrack=%.6f val_rmse=%.6f val_mae=%.6f",
             epoch, args.epochs, train_loss, val_metrics["f1"], val_metrics["acc"],
-            val_metrics["kappa"], val_metrics["ccc"], val_metrics["rmse"], val_metrics["mae"],
+            val_metrics["kappa"], val_metrics["ccc"], val_metrics["scoretrack"], val_metrics["rmse"],
+            val_metrics["mae"],
         )
         history_rows.append(history_row)
 
@@ -410,6 +420,7 @@ def main() -> None:
                     "experiment_name": experiment_name,
                     "best_epoch": epoch,
                     "best_val_metrics": best_val_summary,
+                    "score_weights": score_weights,
                     "metric_split": "val",
                 },
                 best_checkpoint_path,
@@ -423,6 +434,7 @@ def main() -> None:
     if best_val_metrics is None:
         raise RuntimeError("Training finished without a valid validation checkpoint.")
     best_val_summary = summarize_metrics(best_val_metrics)
+    best_val_summary["selection_score"] = best_score
 
     history_path = log_dir / f"history_{timestamp}.csv"
     with open(history_path, "w", encoding="utf-8-sig", newline="") as handle:
@@ -444,6 +456,7 @@ def main() -> None:
         "regression_label": args.regression_label if is_regression_task else "",
         "best_epoch": best_epoch,
         "selection_metric": selection_metric_name,
+        "score_weights": score_weights,
         "best_val_metrics": best_val_summary,
         "checkpoint_path": best_checkpoint_rel,
         "history_path": history_rel,
@@ -471,6 +484,10 @@ def main() -> None:
         "metric_split": "val",
         "selection_metric": selection_metric_name,
         "selection_score": f"{best_val_summary.get('selection_score', 0.0):.6f}",
+        "ScoreTrack": f"{best_val_summary.get('scoretrack', 0.0):.6f}",
+        "score_alpha": f"{score_weights['alpha']:.6f}",
+        "score_beta": f"{score_weights['beta']:.6f}",
+        "score_gamma": f"{score_weights['gamma']:.6f}",
         "Macro-F1": f"{best_val_summary.get('f1', 0.0):.6f}",
         "ACC": f"{best_val_summary.get('acc', 0.0):.6f}",
         "Kappa": f"{best_val_summary.get('kappa', 0.0):.6f}",

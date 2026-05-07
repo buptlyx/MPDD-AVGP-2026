@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from dataset import REGRESSION_TASK, MPDDElderDataset, collate_batch, load_task_maps, resolve_project_path
 from device_utils import build_model_on_available_device
-from metrics import evaluate_model
+from metrics import build_score_weights, evaluate_model
 from models import TorchcatBaseline
 
 
@@ -48,6 +48,9 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--logs_dir", default=defaults["logs_dir"])
     parser.add_argument("--sample_csv", default="", help="Optional CodaBench sample CSV with an id column.")
     parser.add_argument("--prediction_csv", default="", help="Optional output path for binary.csv or ternary.csv.")
+    parser.add_argument("--score_alpha", type=float, default=defaults.get("score_alpha"))
+    parser.add_argument("--score_beta", type=float, default=defaults.get("score_beta"))
+    parser.add_argument("--score_gamma", type=float, default=defaults.get("score_gamma"))
     return parser
 
 
@@ -287,7 +290,13 @@ def main() -> None:
     use_regression_head = bool(model_kwargs.get("use_regression_head", False))
     is_regression_task = task == REGRESSION_TASK
     criterion = (nn.CrossEntropyLoss(), nn.MSELoss()) if use_regression_head else nn.CrossEntropyLoss()
-    metrics = evaluate_model(model, test_loader, criterion, device, task)
+    score_weights = build_score_weights(
+        args.score_alpha,
+        args.score_beta,
+        args.score_gamma,
+        base=checkpoint.get("score_weights"),
+    )
+    metrics = evaluate_model(model, test_loader, criterion, device, task, score_weights)
     metric_summary = summarize_metrics(metrics)
     checkpoint_rel = to_project_relative_path(checkpoint_path)
     prediction_csv_rel = ""
@@ -306,6 +315,7 @@ def main() -> None:
         "audio_feature": audio_feature,
         "video_feature": video_feature,
         "regression_label": regression_label if is_regression_task else "",
+        "score_weights": score_weights,
         "metrics": metric_summary,
         "predictions_path": prediction_csv_rel,
     }
@@ -324,6 +334,10 @@ def main() -> None:
         "video_feature": video_feature,
         "checkpoint": checkpoint_rel,
         "predictions_path": prediction_csv_rel,
+        "ScoreTrack": f"{metrics.get('scoretrack', 0.0):.6f}",
+        "score_alpha": f"{score_weights['alpha']:.6f}",
+        "score_beta": f"{score_weights['beta']:.6f}",
+        "score_gamma": f"{score_weights['gamma']:.6f}",
         "Macro-F1": f"{metrics.get('f1', 0.0):.6f}",
         "ACC": f"{metrics.get('acc', 0.0):.6f}",
         "Kappa": f"{metrics.get('kappa', 0.0):.6f}",
@@ -335,6 +349,10 @@ def main() -> None:
     if is_regression_task:
         summary_row["regression_label"] = regression_label
     append_summary_row(log_dir / f"{experiment_name}_test_only.csv", summary_row)
+    logger.info(
+        "ScoreTrack=%.6f | alpha=%.6f beta=%.6f gamma=%.6f",
+        metrics.get("scoretrack", 0.0), score_weights["alpha"], score_weights["beta"], score_weights["gamma"],
+    )
     if prediction_csv_rel:
         logger.info("Prediction CSV saved to: %s", prediction_csv_rel)
     logger.info("Test-only metrics saved to: %s", to_project_relative_path(result_path))
