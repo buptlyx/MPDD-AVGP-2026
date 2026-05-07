@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
 import torch
 from sklearn.metrics import accuracy_score, cohen_kappa_score, confusion_matrix, f1_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+
+DEFAULT_SCORE_WEIGHTS = {
+    "alpha": 1.0 / 3.0,
+    "beta": 1.0 / 3.0,
+    "gamma": 1.0 / 3.0,
+}
 
 
 def safe_float(value: Any) -> float:
@@ -16,6 +24,35 @@ def safe_float(value: Any) -> float:
     if np.isnan(value) or np.isinf(value):
         return 0.0
     return value
+
+
+def build_score_weights(
+    alpha: float | None = None,
+    beta: float | None = None,
+    gamma: float | None = None,
+    base: Mapping[str, Any] | None = None,
+) -> dict[str, float]:
+    weights = dict(DEFAULT_SCORE_WEIGHTS)
+    if base is not None:
+        for key in weights:
+            if key in base and base[key] is not None:
+                weights[key] = safe_float(base[key])
+    if alpha is not None:
+        weights["alpha"] = safe_float(alpha)
+    if beta is not None:
+        weights["beta"] = safe_float(beta)
+    if gamma is not None:
+        weights["gamma"] = safe_float(gamma)
+    return weights
+
+
+def scoretrack(metrics: Mapping[str, Any], score_weights: Mapping[str, Any] | None = None) -> float:
+    weights = build_score_weights(base=score_weights)
+    return safe_float(
+        weights["alpha"] * safe_float(metrics.get("f1", 0.0))
+        + weights["beta"] * safe_float(metrics.get("ccc", 0.0))
+        + weights["gamma"] * safe_float(metrics.get("kappa", 0.0))
+    )
 
 
 def ccc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -73,6 +110,7 @@ def evaluate_model(
     criterion: Any,
     device: torch.device,
     task: str,
+    score_weights: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     is_joint_regression = isinstance(criterion, (tuple, list))
     model.eval()
@@ -146,6 +184,7 @@ def evaluate_model(
     else:
         metrics["selection_score"] = safe_float(metrics.get("f1", metrics.get("ccc", 0.0)))
 
+    metrics["scoretrack"] = scoretrack(metrics, score_weights)
     metrics["loss"] = safe_float(total_loss / max(1, len(all_labels)))
     metrics["ids"] = all_ids
     return metrics

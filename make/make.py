@@ -156,7 +156,11 @@ def main() -> None:
 
     parser.add_argument("--binary_csv", required=True, help="Path to binary.csv")
     parser.add_argument("--ternary_csv", required=True, help="Path to ternary.csv")
-    parser.add_argument("--output_dir", default="submission_output", help="Output directory")
+    parser.add_argument(
+        "--output_dir",
+        default=None,
+        help="Output directory for submission.zip. Defaults to the directory containing binary.csv.",
+    )
 
     parser.add_argument(
         "--binary_sample",
@@ -195,7 +199,8 @@ def main() -> None:
     validate_binary_predictions(binary_df)
     validate_ternary_predictions(ternary_df)
 
-    write_submission_zip(binary_df, ternary_df, args.output_dir)
+    output_dir = args.output_dir or str(Path(args.binary_csv).parent)
+    write_submission_zip(binary_df, ternary_df, output_dir)
 
 
 if __name__ == "__main__":
