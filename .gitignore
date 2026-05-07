@@ -6,6 +6,7 @@
 /.hfd
 /__pycache__
 /.idea
+/OSmodels
 *.pth
 *.DS_Store
 *.log
