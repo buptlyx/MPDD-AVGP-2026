@@ -81,6 +81,14 @@ def run_command(command: list[str], env: dict[str, str]) -> None:
     subprocess.run(command, cwd=PROJECT_ROOT, env=env, check=True)
 
 
+def normalize_shell_line_endings(paths: list[Path]) -> None:
+    for path in sorted(set(paths)):
+        data = path.read_bytes()
+        normalized = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        if normalized != data:
+            path.write_bytes(normalized)
+
+
 def rel_posix(path: Path) -> str:
     try:
         return path.relative_to(PROJECT_ROOT).as_posix()
@@ -192,6 +200,14 @@ def main() -> None:
                 rel_posix(predictions_dir),
             )
         return
+
+    normalize_shell_line_endings(
+        [
+            *train_scripts.values(),
+            *test_scripts.values(),
+            PROJECT_ROOT / "test_scripts" / "_common.sh",
+        ]
+    )
 
     predictions_dir.mkdir(parents=True, exist_ok=True)
 
