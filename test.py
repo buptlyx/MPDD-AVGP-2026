@@ -27,6 +27,7 @@ SUBTRACK_LOG_DIRS = {
     "G-P": "G-P",
 }
 PATH_ANCHORS = (
+    "runs",
     "MPDD-AVG2026-test",
     "MPDD-AVG2026-trainval",
     "MPDD-AVG2026-raw",
@@ -34,7 +35,6 @@ PATH_ANCHORS = (
     "checkpoints",
     "logs",
     "predictions",
-    "runs",
 )
 
 
@@ -101,6 +101,10 @@ def remap_repo_path(path_like: str | Path) -> str:
         candidate = PROJECT_ROOT.joinpath(*path.parts[1:])
         if candidate.exists():
             return candidate.relative_to(PROJECT_ROOT).as_posix()
+
+    if path.parts and path.parts[0] in PATH_ANCHORS:
+        candidate = PROJECT_ROOT.joinpath(*path.parts)
+        return candidate.relative_to(PROJECT_ROOT).as_posix()
 
     for anchor in PATH_ANCHORS:
         if anchor not in path.parts:

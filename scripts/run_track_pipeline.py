@@ -251,18 +251,20 @@ def main() -> None:
                 }
             )
             prediction_csv = predictions_dir / f"{task}.csv"
+            root_prediction_csv = PROJECT_ROOT / "predictions" / f"{task}.csv"
+            if root_prediction_csv.exists():
+                root_prediction_csv.unlink()
             run_command(
-                [args.bash_bin, rel_posix(test_scripts[task]), "--prediction_csv", rel_posix(prediction_csv)],
+                [args.bash_bin, rel_posix(test_scripts[task]), "--prediction_csv", str(prediction_csv)],
                 env,
             )
             if not prediction_csv.exists():
-                root_prediction_csv = PROJECT_ROOT / "predictions" / f"{task}.csv"
                 if root_prediction_csv.exists():
-                    raise FileNotFoundError(
-                        f"Expected {rel_posix(prediction_csv)}, but test.py wrote {rel_posix(root_prediction_csv)}. "
-                        "Please use the updated test.py path remapping."
-                    )
-                raise FileNotFoundError(f"Expected prediction CSV was not generated: {rel_posix(prediction_csv)}")
+                    prediction_csv.parent.mkdir(parents=True, exist_ok=True)
+                    root_prediction_csv.replace(prediction_csv)
+                    print(f"Moved prediction CSV to: {rel_posix(prediction_csv)}", flush=True)
+                else:
+                    raise FileNotFoundError(f"Expected prediction CSV was not generated: {rel_posix(prediction_csv)}")
 
         make_script = PROJECT_ROOT / "make" / "make.py"
         run_command(
