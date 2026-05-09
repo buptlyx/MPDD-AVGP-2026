@@ -339,6 +339,7 @@ def main() -> None:
     best_epoch = 0
     best_val_metrics: dict[str, Any] | None = None
     best_checkpoint_path = checkpoints_dir / f"best_model_{timestamp}.pth"
+    stable_checkpoint_path = checkpoints_dir / "best_model.pth"
     epochs_without_improve = 0
 
     for epoch in range(1, args.epochs + 1):
@@ -401,30 +402,29 @@ def main() -> None:
             best_val_summary = summarize_metrics(val_metrics)
             best_val_summary["selection_score"] = current_score
             epochs_without_improve = 0
-            torch.save(
-                {
-                    "model_state": model.state_dict(),
-                    "model_kwargs": model_kwargs,
-                    "track": args.track,
-                    "task": args.task,
-                    "subtrack": args.subtrack,
-                    "encoder_type": args.encoder_type,
-                    "audio_feature": args.audio_feature,
-                    "video_feature": args.video_feature,
-                    "regression_label": args.regression_label if is_regression_task else "",
-                    "data_root": to_project_relative_path(args.data_root),
-                    "split_csv": to_project_relative_path(args.split_csv),
-                    "personality_npy": to_project_relative_path(args.personality_npy),
-                    "target_t": args.target_t,
-                    "seed": args.seed,
-                    "experiment_name": experiment_name,
-                    "best_epoch": epoch,
-                    "best_val_metrics": best_val_summary,
-                    "score_weights": score_weights,
-                    "metric_split": "val",
-                },
-                best_checkpoint_path,
-            )
+            checkpoint_payload = {
+                "model_state": model.state_dict(),
+                "model_kwargs": model_kwargs,
+                "track": args.track,
+                "task": args.task,
+                "subtrack": args.subtrack,
+                "encoder_type": args.encoder_type,
+                "audio_feature": args.audio_feature,
+                "video_feature": args.video_feature,
+                "regression_label": args.regression_label if is_regression_task else "",
+                "data_root": to_project_relative_path(args.data_root),
+                "split_csv": to_project_relative_path(args.split_csv),
+                "personality_npy": to_project_relative_path(args.personality_npy),
+                "target_t": args.target_t,
+                "seed": args.seed,
+                "experiment_name": experiment_name,
+                "best_epoch": epoch,
+                "best_val_metrics": best_val_summary,
+                "score_weights": score_weights,
+                "metric_split": "val",
+            }
+            torch.save(checkpoint_payload, best_checkpoint_path)
+            torch.save(checkpoint_payload, stable_checkpoint_path)
         else:
             epochs_without_improve += 1
             if epochs_without_improve >= args.patience:
@@ -443,6 +443,7 @@ def main() -> None:
         writer.writerows(history_rows)
 
     best_checkpoint_rel = to_project_relative_path(best_checkpoint_path)
+    stable_checkpoint_rel = to_project_relative_path(stable_checkpoint_path)
     history_rel = to_project_relative_path(history_path)
     result_payload = {
         "experiment_name": experiment_name,
@@ -459,6 +460,7 @@ def main() -> None:
         "score_weights": score_weights,
         "best_val_metrics": best_val_summary,
         "checkpoint_path": best_checkpoint_rel,
+        "stable_checkpoint_path": stable_checkpoint_rel,
         "history_path": history_rel,
         "predictions_path": "",
         "train_count": len(train_dataset),
@@ -480,6 +482,7 @@ def main() -> None:
         "seed": args.seed,
         "best_epoch": best_epoch,
         "checkpoint_path": best_checkpoint_rel,
+        "stable_checkpoint_path": stable_checkpoint_rel,
         "predictions_path": "",
         "metric_split": "val",
         "selection_metric": selection_metric_name,
@@ -500,6 +503,7 @@ def main() -> None:
         summary_row["regression_label"] = args.regression_label
     append_summary_row(log_dir / f"{experiment_name}.csv", summary_row)
     logger.info("Best checkpoint: %s", best_checkpoint_rel)
+    logger.info("Stable checkpoint: %s", stable_checkpoint_rel)
     logger.info("Validation metrics saved to: %s", to_project_relative_path(result_path))
 
 

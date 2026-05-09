@@ -15,9 +15,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from dataset import REGRESSION_TASK, MPDDElderDataset, collate_batch, load_task_maps, resolve_project_path
+from dataset import REGRESSION_TASK, MPDDElderDataset, collate_batch, resolve_project_path
 from device_utils import build_model_on_available_device
-from metrics import build_score_weights, evaluate_model
 from models import TorchcatBaseline
 
 
@@ -27,18 +26,15 @@ SUBTRACK_LOG_DIRS = {
     "A-V-G-P": "A-V-G-P",
     "G-P": "G-P",
 }
-METRIC_ARRAY_KEYS = {"ids", "y_true", "y_pred", "class_true", "class_pred", "phq_true", "phq_pred"}
-ABLATION_AUTO_SUBTRACKS = {
-    "G-P": ("gait", "personality"),
-}
-SUMMARY_METRICS = (
-    ("ScoreTrack", "scoretrack"),
-    ("Macro-F1", "f1"),
-    ("ACC", "acc"),
-    ("Kappa", "kappa"),
-    ("CCC", "ccc"),
-    ("RMSE", "rmse"),
-    ("MAE", "mae"),
+PATH_ANCHORS = (
+    "MPDD-AVG2026-test",
+    "MPDD-AVG2026-trainval",
+    "MPDD-AVG2026-raw",
+    "make_submission_forcodabench",
+    "checkpoints",
+    "logs",
+    "predictions",
+    "runs",
 )
 
 
@@ -50,9 +46,8 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
 def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run inference from a trained MPDD-AVG baseline checkpoint.")
     parser.add_argument("--config", default="config.json")
-    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--checkpoint", required=True, help="Checkpoint .pth file or checkpoint directory.")
     parser.add_argument("--data_root", default="")
-    parser.add_argument("--split_csv", default="")
     parser.add_argument("--personality_npy", default="")
     parser.add_argument("--device", default=defaults["device"])
     parser.add_argument("--batch_size", type=int, default=defaults["batch_size"])
@@ -64,7 +59,6 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
         default="",
         help="Optional output path for binary.csv or ternary.csv. If empty, will write under logs_dir.",
     )
-    # NOTE: 移除打分相关参数（score_alpha/beta/gamma）与 ablation
     return parser
 
 
@@ -78,16 +72,45 @@ def parse_args() -> argparse.Namespace:
 
 
 def setup_logger() -> logging.Logger:
-    logger = logging.getLogger(f"elder_track1_test_{time.time_ns()}")
+    logger = logging.getLogger(f"mpdd_avg_test_{time.time_ns()}")
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
-
     logger.handlers.clear()
     logger.addHandler(console_handler)
     return logger
+
+
+def remap_repo_path(path_like: str | Path) -> str:
+    path = Path(path_like)
+    if path.exists():
+        resolved_path = path.resolve()
+        try:
+            return resolved_path.relative_to(PROJECT_ROOT).as_posix()
+        except ValueError:
+            return str(resolved_path)
+
+    if path.is_absolute():
+        try:
+            return path.resolve().relative_to(PROJECT_ROOT).as_posix()
+        except ValueError:
+            return str(path)
+
+    if path.parts and path.parts[0] == PROJECT_ROOT.name:
+        candidate = PROJECT_ROOT.joinpath(*path.parts[1:])
+        if candidate.exists():
+            return candidate.relative_to(PROJECT_ROOT).as_posix()
+
+    for anchor in PATH_ANCHORS:
+        if anchor not in path.parts:
+            continue
+        anchor_index = path.parts.index(anchor)
+        candidate = PROJECT_ROOT.joinpath(*path.parts[anchor_index:])
+        if candidate.exists() or anchor in {"logs", "predictions", "runs"}:
+            return candidate.relative_to(PROJECT_ROOT).as_posix()
+
+    return path.as_posix()
 
 
 def resolve_track_task_dir(root: Path, track: str, subtrack: str, task: str, experiment_name: str) -> Path:
@@ -107,13 +130,50 @@ def require_checkpoint_value(checkpoint: dict[str, Any], key: str) -> Any:
     return value
 
 
+def resolve_checkpoint_path(path_like: str | Path) -> Path:
+    checkpoint_path = resolve_project_path(remap_repo_path(path_like))
+    if checkpoint_path.is_file():
+        return checkpoint_path
+    if not checkpoint_path.is_dir():
+        raise FileNotFoundError(f"Checkpoint path does not exist: {checkpoint_path}")
+
+    stable_checkpoint = checkpoint_path / "best_model.pth"
+    if stable_checkpoint.is_file():
+        return stable_checkpoint
+
+    for pattern in ("best_model_*.pth", "last_model_*.pth", "*.pth"):
+        candidates = sorted(checkpoint_path.glob(pattern))
+        if candidates:
+            return max(candidates, key=lambda item: (item.stat().st_mtime, item.name))
+    for pattern in ("best_model.pth", "best_model_*.pth", "last_model_*.pth", "*.pth"):
+        candidates = sorted(checkpoint_path.rglob(pattern))
+        if candidates:
+            return max(candidates, key=lambda item: (item.stat().st_mtime, item.name))
+    raise FileNotFoundError(f"No checkpoint .pth file found under: {checkpoint_path}")
+
+
+def resolve_test_data_root(args_data_root: str, checkpoint_data_root: str) -> str:
+    if args_data_root:
+        return remap_repo_path(args_data_root)
+
+    checkpoint_root = remap_repo_path(checkpoint_data_root)
+    if "MPDD-AVG2026-trainval" in checkpoint_root:
+        candidate = checkpoint_root.replace("MPDD-AVG2026-trainval", "MPDD-AVG2026-test")
+        if resolve_project_path(candidate).exists():
+            return candidate
+    return checkpoint_root
+
+
 def read_sample_ids(sample_csv: str | Path) -> list[int]:
     csv_path = resolve_project_path(remap_repo_path(sample_csv))
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
-    if not rows or "id" not in rows[0]:
+    if not rows:
+        raise ValueError(f"Sample CSV is empty: {csv_path}")
+    id_column = "id" if "id" in rows[0] else "ID" if "ID" in rows[0] else ""
+    if not id_column:
         raise ValueError(f"Sample CSV must contain an id column: {csv_path}")
-    return [int(row["id"]) for row in rows]
+    return [int(float(row[id_column])) for row in rows if str(row.get(id_column, "")).strip()]
 
 
 def infer_test_ids_from_data_root(data_root: str | Path) -> list[int]:
@@ -125,34 +185,21 @@ def infer_test_ids_from_data_root(data_root: str | Path) -> list[int]:
     for path in root.rglob("*"):
         if path.is_dir() and path.name.isdigit():
             ids.add(int(path.name))
+        elif path.is_file() and path.suffix.lower() == ".npy" and path.stem.isdigit():
+            ids.add(int(path.stem))
     if not ids:
-        raise RuntimeError(f"No numeric sample ID directories found under: {root}")
+        raise RuntimeError(f"No numeric test IDs found under: {root}")
     return sorted(ids)
 
 
 def build_unlabeled_task_maps(sample_ids: list[int]) -> dict[str, Any]:
-    # 仅用于 Dataset 初始化占位，不用于评估
-    label_map = {sample_id: 0 for sample_id in sample_ids}
     return {
-        "test_map": label_map,
+        "test_map": {sample_id: 0 for sample_id in sample_ids},
         "source_split_map": {sample_id: "test" for sample_id in sample_ids},
-        "test_phq_map": {sample_id: 0.0 for sample_id in sample_ids},
     }
 
 
-def load_test_task_maps(
-    split_csv: str | Path,
-    task: str,
-    regression_label: str,
-    data_root: str | Path,
-    sample_csv: str | Path = "",
-) -> dict[str, Any]:
-    split_path = resolve_project_path(remap_repo_path(split_csv)) if split_csv else None
-    if split_path is not None and split_path.exists():
-        # 如果你给了带标签的 split_csv，这里仍然能加载标签，
-        # 但本脚本不再使用标签做评估，只用于保证 ID 列表一致。
-        return load_task_maps(split_path, task, regression_label)
-
+def load_test_task_maps(data_root: str | Path, sample_csv: str | Path = "") -> dict[str, Any]:
     sample_ids = read_sample_ids(sample_csv) if sample_csv else infer_test_ids_from_data_root(data_root)
     return build_unlabeled_task_maps(sample_ids)
 
@@ -164,56 +211,6 @@ def inverse_normalize_phq(value: float) -> float:
     if value >= math.log1p(27.0):
         return 27.0
     return float(math.expm1(value))
-
-
-def remap_repo_path(path_like: str | Path) -> str:
-    path = Path(path_like)
-    if path.exists():
-        resolved_path = path.resolve()
-        try:
-            return resolved_path.relative_to(PROJECT_ROOT).as_posix()
-        except ValueError:
-            return str(resolved_path)
-
-    if path.is_absolute():
-        try:
-            return path.resolve().relative_to(PROJECT_ROOT).as_posix()
-        except ValueError:
-            pass
-
-    anchors = (
-        "MPDD-AVG2026-test",
-        "MPDD-AVG2026-trainval",
-        "MPDD-AVG2026-raw",
-        "make_submission_forcodabench",
-        "checkpoints",
-        "logs",
-        "predictions",
-    )
-    if not path.is_absolute():
-        if path.parts and path.parts[0] == PROJECT_ROOT.name:
-            candidate = PROJECT_ROOT.joinpath(*path.parts[1:])
-            if candidate.exists():
-                return candidate.relative_to(PROJECT_ROOT).as_posix()
-        if not path.parts or path.parts[0] not in anchors:
-            return path.as_posix()
-
-    for anchor in anchors:
-        if anchor not in path.parts:
-            continue
-        anchor_index = path.parts.index(anchor)
-        candidate = PROJECT_ROOT.joinpath(*path.parts[anchor_index:])
-        if candidate.exists() or anchor in {"logs", "predictions"}:
-            return candidate.relative_to(PROJECT_ROOT).as_posix()
-
-    if not path.is_absolute() and path.parts and path.parts[0] == PROJECT_ROOT.name:
-        candidate = PROJECT_ROOT.joinpath(*path.parts[1:])
-        if candidate.exists():
-            return candidate.relative_to(PROJECT_ROOT).as_posix()
-
-    if not path.is_absolute():
-        return path.as_posix()
-    return str(path)
 
 
 def write_prediction_csv_from_logits(
@@ -233,16 +230,19 @@ def write_prediction_csv_from_logits(
     else:
         raise ValueError(f"Prediction CSV is only supported for binary/ternary tasks, got task={task}")
 
+    phq_values = phq_pred if phq_pred is not None and len(phq_pred) == len(ids) else [0.0] * len(ids)
     rows = []
-    for i, sample_id in enumerate(ids):
-        row = {"id": int(sample_id), pred_column: int(class_pred[i])}
-        if phq_pred is not None:
-            row["phq9_pred"] = f"{inverse_normalize_phq(float(phq_pred[i])):.6f}"
-        rows.append(row)
+    for index, sample_id in enumerate(ids):
+        rows.append(
+            {
+                "id": int(sample_id),
+                pred_column: int(class_pred[index]),
+                "phq9_pred": f"{inverse_normalize_phq(float(phq_values[index])):.6f}",
+            }
+        )
 
-    fieldnames = ["id", pred_column] + (["phq9_pred"] if phq_pred is not None else [])
     with open(output_path, "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=["id", pred_column, "phq9_pred"])
         writer.writeheader()
         writer.writerows(rows)
     return to_project_relative_path(output_path)
@@ -256,53 +256,41 @@ def predict(model: nn.Module, loader: DataLoader, device: torch.device, use_regr
     all_phq_pred: list[float] = []
 
     for batch in loader:
-        # collate_batch 通常会返回 dict
-        batch_ids = batch.get("ids", batch.get("id"))
-        if batch_ids is None:
-            raise KeyError("Batch missing 'ids' field. Please check collate_batch output.")
-
-        # ids 可能是 Tensor / list
-        if torch.is_tensor(batch_ids):
-            batch_ids_list = [int(x) for x in batch_ids.cpu().tolist()]
-        else:
-            batch_ids_list = [int(x) for x in batch_ids]
-
-        batch = {k: (v.to(device) if torch.is_tensor(v) else v) for k, v in batch.items()}
-
-        outputs = model(batch, only_modality=None) if callable(getattr(model, "__call__", None)) else model(**batch)
-
-        # 兼容 TorchcatBaseline 常见返回：可能是 dict 或 tuple
+        outputs = model(
+            audio=batch["audio"].to(device) if "audio" in batch else None,
+            video=batch["video"].to(device) if "video" in batch else None,
+            gait=batch["gait"].to(device) if "gait" in batch else None,
+            personality=batch["personality"].to(device),
+            pair_mask=batch["pair_mask"].to(device) if "pair_mask" in batch else None,
+        )
         if isinstance(outputs, dict):
             logits = outputs.get("logits", outputs.get("class_logits"))
             phq = outputs.get("phq_pred", outputs.get("regression"))
-        else:
-            # 如果模型 forward 返回 (logits, phq) 或仅 logits
+        elif isinstance(outputs, (tuple, list)):
             logits = outputs[0]
-            phq = outputs[1] if (use_regression_head and len(outputs) > 1) else None
+            phq = outputs[1] if use_regression_head and len(outputs) > 1 else None
+        else:
+            logits = outputs
+            phq = None
 
         if logits is None:
             raise RuntimeError("Model output missing logits; cannot produce class predictions.")
 
-        preds = torch.argmax(logits, dim=-1).detach().cpu().tolist()
-
-        all_ids.extend(batch_ids_list)
-        all_class_pred.extend([int(p) for p in preds])
-
+        all_ids.extend(int(item) for item in batch["pid"].cpu().tolist())
+        all_class_pred.extend(int(item) for item in torch.argmax(logits, dim=-1).detach().cpu().tolist())
         if use_regression_head and phq is not None:
-            phq_vals = phq.detach().float().cpu().view(-1).tolist()
-            all_phq_pred.extend([float(v) for v in phq_vals])
+            all_phq_pred.extend(float(item) for item in phq.detach().float().cpu().view(-1).tolist())
 
-    payload: dict[str, Any] = {"ids": all_ids, "class_pred": all_class_pred}
-    if use_regression_head:
-        payload["phq_pred"] = all_phq_pred if len(all_phq_pred) == len(all_ids) else None
-    else:
-        payload["phq_pred"] = None
-    return payload
+    return {
+        "ids": all_ids,
+        "class_pred": all_class_pred,
+        "phq_pred": all_phq_pred if len(all_phq_pred) == len(all_ids) else None,
+    }
 
 
 def main() -> None:
     args = parse_args()
-    checkpoint_path = resolve_project_path(remap_repo_path(args.checkpoint))
+    checkpoint_path = resolve_checkpoint_path(args.checkpoint)
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
 
     track = require_checkpoint_value(checkpoint, "track")
@@ -312,8 +300,7 @@ def main() -> None:
     encoder_type = require_checkpoint_value(checkpoint, "encoder_type")
     audio_feature = require_checkpoint_value(checkpoint, "audio_feature")
     video_feature = require_checkpoint_value(checkpoint, "video_feature")
-    data_root = remap_repo_path(args.data_root or require_checkpoint_value(checkpoint, "data_root"))
-    split_csv = remap_repo_path(args.split_csv or require_checkpoint_value(checkpoint, "split_csv"))
+    data_root = resolve_test_data_root(args.data_root, require_checkpoint_value(checkpoint, "data_root"))
     personality_npy = remap_repo_path(args.personality_npy or require_checkpoint_value(checkpoint, "personality_npy"))
     target_t = int(require_checkpoint_value(checkpoint, "target_t"))
     experiment_name = checkpoint.get("experiment_name", checkpoint_path.parent.name)
@@ -323,24 +310,21 @@ def main() -> None:
     log_dir = resolve_track_task_dir(logs_root, track, subtrack, task, experiment_name)
     log_dir.mkdir(parents=True, exist_ok=True)
     logger = setup_logger()
+    logger.info("Checkpoint: %s", to_project_relative_path(checkpoint_path))
+    logger.info("Data root: %s", data_root)
+    logger.info("Personality file: %s", personality_npy)
 
-    task_maps = load_test_task_maps(
-        split_csv=split_csv,
-        task=task,
-        regression_label=regression_label or "label2",
-        data_root=data_root,
-        sample_csv=args.sample_csv,
-    )
+    task_maps = load_test_task_maps(data_root=data_root, sample_csv=args.sample_csv)
     test_dataset = MPDDElderDataset(
         data_root=data_root,
-        label_map=task_maps["test_map"],  # 占位，不用于评估
+        label_map=task_maps["test_map"],
         source_split_map=task_maps["source_split_map"],
         subtrack=subtrack,
         task=task,
         audio_feature=audio_feature,
         video_feature=video_feature,
         personality_npy=personality_npy,
-        phq_map=task_maps.get("test_phq_map"),
+        phq_map=None,
         target_t=target_t,
     )
     test_loader = DataLoader(
@@ -359,14 +343,13 @@ def main() -> None:
     )
     model.load_state_dict(require_checkpoint_value(checkpoint, "model_state"))
     use_regression_head = bool(model_kwargs.get("use_regression_head", False))
-
     pred_payload = predict(model, test_loader, device, use_regression_head=use_regression_head)
 
     prediction_csv_path = args.prediction_csv
     if not prediction_csv_path and task in {"binary", "ternary"}:
         prediction_csv_path = log_dir / f"{task}_{checkpoint_path.stem}.csv"
     if not prediction_csv_path:
-        raise ValueError("prediction_csv is required (or task must be binary/ternary to auto-generate a path).")
+        raise ValueError("prediction_csv is required for non-classification tasks.")
 
     prediction_csv_rel = write_prediction_csv_from_logits(
         ids=pred_payload["ids"],
@@ -375,7 +358,27 @@ def main() -> None:
         task=task,
         output_path=prediction_csv_path,
     )
+
+    result_payload = {
+        "checkpoint": to_project_relative_path(checkpoint_path),
+        "track": track,
+        "task": task,
+        "subtrack": subtrack,
+        "encoder_type": encoder_type,
+        "audio_feature": audio_feature,
+        "video_feature": video_feature,
+        "regression_label": regression_label if task == REGRESSION_TASK else "",
+        "data_root": data_root,
+        "predictions_path": prediction_csv_rel,
+        "prediction_count": len(pred_payload["ids"]),
+    }
+    result_path = log_dir / f"prediction_result_{timestamp}.json"
+    with open(result_path, "w", encoding="utf-8") as handle:
+        json.dump(result_payload, handle, indent=2, ensure_ascii=False)
+
     logger.info("Prediction CSV saved to: %s", prediction_csv_rel)
+    logger.info("Prediction count: %d", len(pred_payload["ids"]))
+    logger.info("Prediction metadata saved to: %s", to_project_relative_path(result_path))
 
 
 if __name__ == "__main__":

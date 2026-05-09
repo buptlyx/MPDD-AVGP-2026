@@ -52,9 +52,6 @@ The default relative paths are:
 - Test set root:
   - `Track1 -> MPDD-AVG2026-test/Elder`
   - `Track2 -> MPDD-AVG2026-test/Young`
-- Test split CSV:
-  - `Track1 -> MPDD-AVG2026-test/Elder/split_labels_test.csv`
-  - `Track2 -> MPDD-AVG2026-test/Young/split_labels_test.csv`
 - Personality embeddings:
   - `Track1 -> MPDD-AVG2026-trainval/Elder/descriptions_embeddings_with_ids.npy`
   - `Track2 -> MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy`
@@ -63,7 +60,7 @@ The default relative paths are:
 
 ## Checkpoint Directory Convention
 
-Each script scans its corresponding checkpoint directory with the following layout:
+Each script passes its corresponding checkpoint target directory to `test.py`:
 
 ```text
 checkpoints/
@@ -71,6 +68,7 @@ checkpoints/
     SubtrackDir/
       binary|ternary/
         experiment_name/
+          best_model.pth
           best_model_*.pth
 ```
 
@@ -94,9 +92,8 @@ PYTHON_BIN=python3 DEVICE=cpu bash test_scripts/Track2/A-V-G-P/run_ternary.sh
 
 ```bash
 python test.py \
-  --checkpoint checkpoints/Track2/A-V-G-P/ternary/track2_ternary_A-V-G-P_bilstm_mean_wav2vec__resnet_log1p/best_model_2026-04-13-17.32.11.pth \
+  --checkpoint checkpoints/Track2/A-V-G-P/ternary/track2_ternary_A-V-G-P_bilstm_mean_wav2vec__resnet_log1p \
   --data_root MPDD-AVG2026-test/Young \
-  --split_csv MPDD-AVG2026-test/Young/split_labels_test.csv \
   --personality_npy MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy
 ```
 
@@ -115,7 +112,8 @@ Each run usually generates:
 
 Notes
 
-- Each script only scans `best_model_*.pth` files under its own checkpoint directory
+- Each script points `test.py` at its checkpoint target directory; `test.py` prefers `best_model.pth` and falls back to the newest checkpoint file
+- Test inference does not require `split_labels_test.csv`; IDs are inferred from `--data_root` or `--sample_csv`
 - All default paths are now repository-relative
 - If the default `PERSONALITY_NPY` file does not exist, the script exits with an error
 - `test.py` includes compatibility remapping for old absolute paths stored in legacy checkpoints, as long as the target files exist in the current repository structure

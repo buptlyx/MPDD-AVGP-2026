@@ -10,7 +10,6 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 DEVICE="${DEVICE:-cuda}"
 CHECKPOINT_DIR="${CHECKPOINT_DIR:-checkpoints/Track1/A-V-P/binary}"
 DATA_ROOT="${DATA_ROOT:-$(dataset_root_for_split "Elder")}"
-SPLIT_CSV="${SPLIT_CSV:-$(split_csv_for_split "Elder")}"
 PERSONALITY_NPY="${PERSONALITY_NPY:-$(resolve_personality_npy "Elder")}"
 LOGS_DIR="${LOGS_DIR:-logs/test}"
 
@@ -19,10 +18,8 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
-mapfile -t CHECKPOINTS < <(find "$CHECKPOINT_DIR" -type f -name "best_model_*.pth" | sort)
-
-if [[ ${#CHECKPOINTS[@]} -eq 0 ]]; then
-  echo "No checkpoint found in: $CHECKPOINT_DIR" >&2
+if [[ ! -e "$CHECKPOINT_DIR" ]]; then
+  echo "Checkpoint path not found: $CHECKPOINT_DIR" >&2
   exit 1
 fi
 
@@ -31,14 +28,12 @@ if [[ ! -f "$PERSONALITY_NPY" ]]; then
   exit 1
 fi
 
-for CHECKPOINT in "${CHECKPOINTS[@]}"; do
-  echo "[Track1][A-V-P][binary] $CHECKPOINT"
-  "$PYTHON_BIN" test.py \
-    --checkpoint "$CHECKPOINT" \
-    --data_root "$DATA_ROOT" \
-    --split_csv "$SPLIT_CSV" \
-    --personality_npy "$PERSONALITY_NPY" \
-    --device "$DEVICE" \
-    --logs_dir "$LOGS_DIR" \
-    "$@"
-done
+echo "[Track1][A-V-P][binary] $CHECKPOINT_DIR"
+"$PYTHON_BIN" test.py \
+  --checkpoint "$CHECKPOINT_DIR" \
+  --data_root "$DATA_ROOT" \
+  --personality_npy "$PERSONALITY_NPY" \
+  --device "$DEVICE" \
+  --logs_dir "$LOGS_DIR" \
+  "$@"
+
