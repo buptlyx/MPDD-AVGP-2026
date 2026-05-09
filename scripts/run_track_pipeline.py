@@ -11,20 +11,20 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SUBTRACK_ALIASES = {
-    "A-V+P": "A-V-P",
     "A-V-P": "A-V-P",
-    "A-V-G+P": "A-V-G+P",
-    "G+P": "G-P",
+    "A-V-P": "A-V-P",
+    "A-V-G-P": "A-V-G-P",
+    "G-P": "G-P",
     "G-P": "G-P",
 }
 SUBTRACK_TRAIN_NAMES = {
-    "A-V-P": "A-V+P",
-    "A-V-G+P": "A-V-G+P",
-    "G-P": "G+P",
+    "A-V-P": "A-V-P",
+    "A-V-G-P": "A-V-G-P",
+    "G-P": "G-P",
 }
 SUBTRACK_TAGS = {
     "A-V-P": "avp",
-    "A-V-G+P": "avgp",
+    "A-V-G-P": "avgp",
     "G-P": "gp",
 }
 
@@ -39,9 +39,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--track", default="Track1", choices=["Track1", "Track2"])
     parser.add_argument(
         "--subtrack",
-        default="A-V-G+P",
-        choices=["A-V+P", "A-V-P", "A-V-G+P", "G+P", "G-P"],
-        help="Subtrack name. A-V+P/G+P aliases are accepted.",
+        default="A-V-G-P",
+        choices=["A-V-P", "A-V-P", "A-V-G-P", "G-P", "G-P"],
+        help="Subtrack name. A-V-P/G-P aliases are accepted.",
     )
     parser.add_argument("--run_id", default="", help="Optional run id used in experiment names and output folders.")
     parser.add_argument(

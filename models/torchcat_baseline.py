@@ -72,9 +72,9 @@ class PersonalityEncoder(nn.Module):
 class TorchcatBaseline(nn.Module):
     # 预定义每一个子赛道的模态组合
     SUBTRACKS = {
-        "A-V+P": ["audio", "video", "personality"],
-        "A-V-G+P": ["audio", "video", "gait", "personality"],
-        "G+P": ["gait", "personality"],
+        "A-V-P": ["audio", "video", "personality"],
+        "A-V-G-P": ["audio", "video", "gait", "personality"],
+        "G-P": ["gait", "personality"],
     }
     # 支持两种编码器：普通的双向LSTM和混合注意力编码器
     ENCODER_TYPES = {"bilstm_mean", "hybrid_attn"}
@@ -82,7 +82,7 @@ class TorchcatBaseline(nn.Module):
     def __init__(
         self,
         # 赛道选择
-        subtrack: str = "A-V-G+P",
+        subtrack: str = "A-V-G-P",
         # 分类任务数
         num_classes: int = 3,
         # 是否是回归任务（是否使用回归头）

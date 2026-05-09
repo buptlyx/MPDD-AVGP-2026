@@ -8,10 +8,10 @@ cd "$PROJECT_ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 DEVICE="${DEVICE:-cuda}"
-CHECKPOINT_DIR="${CHECKPOINT_DIR:-checkpoints/Track2/A-V-G+P/ternary}"
-DATA_ROOT="${DATA_ROOT:-$(dataset_root_for_split "Young")}"
-SPLIT_CSV="${SPLIT_CSV:-$(split_csv_for_split "Young")}"
-PERSONALITY_NPY="${PERSONALITY_NPY:-$(resolve_personality_npy "Young")}"
+CHECKPOINT_DIR="${CHECKPOINT_DIR:-checkpoints/Track1/A-V-G-P/ternary}"
+DATA_ROOT="${DATA_ROOT:-$(dataset_root_for_split "Elder")}"
+SPLIT_CSV="${SPLIT_CSV:-$(split_csv_for_split "Elder")}"
+PERSONALITY_NPY="${PERSONALITY_NPY:-$(resolve_personality_npy "Elder")}"
 LOGS_DIR="${LOGS_DIR:-logs/test}"
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
@@ -32,7 +32,7 @@ if [[ ! -f "$PERSONALITY_NPY" ]]; then
 fi
 
 for CHECKPOINT in "${CHECKPOINTS[@]}"; do
-  echo "[Track2][A-V-G+P][ternary] $CHECKPOINT"
+  echo "[Track1][A-V-G-P][ternary] $CHECKPOINT"
   "$PYTHON_BIN" test.py \
     --checkpoint "$CHECKPOINT" \
     --data_root "$DATA_ROOT" \

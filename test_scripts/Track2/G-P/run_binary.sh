@@ -32,7 +32,7 @@ if [[ ! -f "$PERSONALITY_NPY" ]]; then
 fi
 
 for CHECKPOINT in "${CHECKPOINTS[@]}"; do
-  echo "[Track2][G+P][binary] $CHECKPOINT"
+  echo "[Track2][G-P][binary] $CHECKPOINT"
   "$PYTHON_BIN" test.py \
     --checkpoint "$CHECKPOINT" \
     --data_root "$DATA_ROOT" \

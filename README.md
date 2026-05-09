@@ -19,7 +19,7 @@ hi
 | -------------------- | ------------------------------------------------------------------------- |
 | **Tracks**     | `Track1` (Elder) · `Track2` (Young)                                  |
 | **Tasks**      | Binary classification (`label2`) · Ternary classification (`label3`) |
-| **Sub-tracks** | `A-V+P` · `A-V-G+P` · `G+P`                                       |
+| **Sub-tracks** | `A-V-P` · `A-V-G-P` · `G-P`                                       |
 | **Encoders**   | `bilstm_mean` · `hybrid_attn`                                        |
 
 > Both binary and ternary classification jointly train a **PHQ-9 regression head**, so each experiment outputs both classification metrics and PHQ-9 regression metrics.
@@ -88,11 +88,11 @@ MPDD_Avg/
 │   │   ├── A-V-P/
 │   │   │   ├── run_binary.sh
 │   │   │   └── run_ternary.sh
-│   │   ├── A-V-G+P/
+│   │   ├── A-V-G-P/
 │   │   └── G-P/
 │   └── Track2/                  # Young
 │       ├── A-V-P/
-│       ├── A-V-G+P/
+│       ├── A-V-G-P/
 │       └── G-P/
 ├── checkpoints/(the checkpoints of baseline system have been uploaded!)
 ├── logs/
@@ -166,9 +166,9 @@ MPDD-AVG2026/
 
 | Sub-track   | Modalities                         |
 | ----------- | ---------------------------------- |
-| `A-V+P`   | Audio + Video + Personality        |
-| `A-V-G+P` | Audio + Video + Gait + Personality |
-| `G+P`     | Gait + Personality only            |
+| `A-V-P`   | Audio + Video + Personality        |
+| `A-V-G-P` | Audio + Video + Gait + Personality |
+| `G-P`     | Gait + Personality only            |
 
 **Feature dimensions by track:**
 
@@ -191,20 +191,20 @@ MPDD-AVG2026/
 ### 6.1 Run Pre-built Scripts
 
 ```bash
-# Track1 / Elder / A-V-G+P — binary classification (runs all 9 A/V feature combos)
-bash scripts/Track1/A-V-G+P/run_binary.sh
+# Track1 / Elder / A-V-G-P — binary classification (runs all 9 A/V feature combos)
+bash scripts/Track1/A-V-G-P/run_binary.sh
 
-# Track1 / Elder / G+P — ternary classification
+# Track1 / Elder / G-P — ternary classification
 bash scripts/Track1/G-P/run_ternary.sh
 
-# Track2 / Young / A-V+P — binary classification (runs all 9 A/V feature combos)
+# Track2 / Young / A-V-P — binary classification (runs all 9 A/V feature combos)
 bash scripts/Track2/A-V-P/run_binary.sh
 
-# Track2 / Young / A-V-G+P — ternary classification
-bash scripts/Track2/A-V-G+P/run_ternary.sh
+# Track2 / Young / A-V-G-P — ternary classification
+bash scripts/Track2/A-V-G-P/run_ternary.sh
 ```
 
-> Scripts under `A-V-P` and `A-V-G+P` automatically iterate over **9 audio/video feature combinations** (3 audio × 3 video). Scripts under `G-P` only run the gait-only track.
+> Scripts under `A-V-P` and `A-V-G-P` automatically iterate over **9 audio/video feature combinations** (3 audio × 3 video). Scripts under `G-P` only run the gait-only track.
 
 ### 6.2 Override Hyperparameters via Environment Variables
 
@@ -241,7 +241,7 @@ DEVICE=cpu EPOCHS=5 BATCH_SIZE=4 LR=1e-3 bash scripts/Track1/A-V-P/run_binary.sh
 python train.py \
   --track Track1 \
   --task binary \
-  --subtrack A-V-G+P \
+  --subtrack A-V-G-P \
   --encoder_type bilstm_mean \
   --audio_feature wav2vec \
   --video_feature resnet \
@@ -254,7 +254,7 @@ python train.py \
 python train.py \
   --track Track2 \
   --task ternary \
-  --subtrack A-V+P \
+  --subtrack A-V-P \
   --encoder_type bilstm_mean \
   --audio_feature wav2vec \
   --video_feature resnet \
@@ -272,7 +272,7 @@ Available encoders: `bilstm_mean` · `hybrid_attn`
 
 ```
 python test.py
-   --checkpoint checkpoints/Track2/A-V-G+P/ternary/track2_ternary_A-V-G+P_bilstm_mean_wav2vec__resnet_log1p/best_model_*.pth
+   --checkpoint checkpoints/Track2/A-V-G-P/ternary/track2_ternary_A-V-G-P_bilstm_mean_wav2vec__resnet_log1p/best_model_*.pth
    --data_root MPDD-AVG2026/MPDD-AVG2026-test/Young
    --split_csv MPDD-AVG2026/MPDD-AVG2026-test/Young/split_labels_test.csv
    --personality_npy MPDD-AVG2026/MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy
@@ -407,7 +407,7 @@ The following test files in the current dataset release are **empty (0 bytes)**:
 - `MPDD-AVG2026-test/Young/Video/resnet`
 - `MPDD-AVG2026-test/Young/Video/openface`
 
-As a result, the video branch in `Track2 / A-V+P` and `Track2 / A-V-G+P` receives zero-padded input during testing. The pipeline will still complete, but video information is absent. `Track2 / G+P` is **not affected** by this issue.
+As a result, the video branch in `Track2 / A-V-P` and `Track2 / A-V-G-P` receives zero-padded input during testing. The pipeline will still complete, but video information is absent. `Track2 / G-P` is **not affected** by this issue.
 
 Additionally, `Young trainval / Video / openface` is not fully valid either — always cross-reference the number of valid samples reported in the training logs.
 

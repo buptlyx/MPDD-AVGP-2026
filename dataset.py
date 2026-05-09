@@ -351,8 +351,8 @@ class MPDDElderDataset(Dataset):
         self.target_t = target_t
         self.has_phq_target = phq_map is not None
         self.is_young = any(root.name.lower() == "young" for root in self.split_data_roots.values())
-        self.need_av = subtrack in ("A-V+P", "A-V-G+P")
-        self.need_gait = subtrack in ("A-V-G+P", "G+P")
+        self.need_av = subtrack in ("A-V-P", "A-V-G-P")
+        self.need_gait = subtrack in ("A-V-G-P", "G-P")
         self.audio_roots: dict[str, Path] = {}
         self.video_roots: dict[str, Path] = {}
 

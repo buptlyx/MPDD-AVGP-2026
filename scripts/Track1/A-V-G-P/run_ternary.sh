@@ -30,7 +30,7 @@ SELECTION_METRIC="${SELECTION_METRIC:-kappa}"
 CLS_LOSS_WEIGHT="${CLS_LOSS_WEIGHT:-3.0}"
 REG_LOSS_WEIGHT="${REG_LOSS_WEIGHT:-0.1}"
 WEIGHTED_SAMPLER="${WEIGHTED_SAMPLER:-1}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-track1_elder_tuned_avgp_${AUDIO_FEATURE}_${VIDEO_FEATURE}_binary_kappa_v1}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-track1_elder_tuned_avgp_${AUDIO_FEATURE}_${VIDEO_FEATURE}_ternary_kappa_v1}"
 
 WEIGHTED_SAMPLER_ARG=""
 case "$WEIGHTED_SAMPLER" in
@@ -39,12 +39,12 @@ case "$WEIGHTED_SAMPLER" in
     ;;
 esac
 
-echo "[Track1][A-V-G+P][binary] seed=${SEED} target_t=${TARGET_T}"
+echo "[Track1][A-V-G-P][ternary] seed=${SEED} target_t=${TARGET_T}"
 cd "$PROJECT_ROOT"
 "$PYTHON_BIN" "$PROJECT_ROOT/train.py" \
   --track Track1 \
-  --task binary \
-  --subtrack "A-V-G+P" \
+  --task ternary \
+  --subtrack "A-V-G-P" \
   --encoder_type "$ENCODER_TYPE" \
   --audio_feature "$AUDIO_FEATURE" \
   --video_feature "$VIDEO_FEATURE" \

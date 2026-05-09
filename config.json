@@ -7,7 +7,7 @@
   "logs_dir": "logs",
   "task": "ternary",
   "regression_label": "label2",
-  "subtrack": "A-V-G+P",
+  "subtrack": "A-V-G-P",
   "encoder_type": "bilstm_mean",
   "audio_feature": "mfcc",
   "video_feature": "densenet",

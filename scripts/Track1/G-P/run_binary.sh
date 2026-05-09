@@ -37,12 +37,12 @@ case "$WEIGHTED_SAMPLER" in
     ;;
 esac
 
-echo "[Track1][G+P][binary] seed=${SEED} target_t=${TARGET_T}"
+echo "[Track1][G-P][binary] seed=${SEED} target_t=${TARGET_T}"
 cd "$PROJECT_ROOT"
 "$PYTHON_BIN" "$PROJECT_ROOT/train.py" \
   --track Track1 \
   --task binary \
-  --subtrack "G+P" \
+  --subtrack "G-P" \
   --encoder_type "$ENCODER_TYPE" \
   --experiment_name "$EXPERIMENT_NAME" \
   --data_root "$DATA_ROOT" \

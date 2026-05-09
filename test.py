@@ -23,13 +23,13 @@ from models import TorchcatBaseline
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SUBTRACK_LOG_DIRS = {
-    "A-V+P": "A-V-P",
-    "A-V-G+P": "A-V-G+P",
-    "G+P": "G-P",
+    "A-V-P": "A-V-P",
+    "A-V-G-P": "A-V-G-P",
+    "G-P": "G-P",
 }
 METRIC_ARRAY_KEYS = {"ids", "y_true", "y_pred", "class_true", "class_pred", "phq_true", "phq_pred"}
 ABLATION_AUTO_SUBTRACKS = {
-    "G+P": ("gait", "personality"),
+    "G-P": ("gait", "personality"),
 }
 SUMMARY_METRICS = (
     ("ScoreTrack", "scoretrack"),
@@ -48,7 +48,7 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
 
 
 def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Evaluate a trained MPDD-AVG baseline checkpoint.")
+    parser = argparse.ArgumentParser(description="Run inference from a trained MPDD-AVG baseline checkpoint.")
     parser.add_argument("--config", default="config.json")
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--data_root", default="")
@@ -59,15 +59,12 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--num_workers", type=int, default=defaults["num_workers"])
     parser.add_argument("--logs_dir", default=defaults["logs_dir"])
     parser.add_argument("--sample_csv", default="", help="Optional CodaBench sample CSV with an id column.")
-    parser.add_argument("--prediction_csv", default="", help="Optional output path for binary.csv or ternary.csv.")
-    parser.add_argument("--score_alpha", type=float, default=defaults.get("score_alpha"))
-    parser.add_argument("--score_beta", type=float, default=defaults.get("score_beta"))
-    parser.add_argument("--score_gamma", type=float, default=defaults.get("score_gamma"))
     parser.add_argument(
-        "--ablation_modes",
-        default="auto",
-        help="Comma-separated modality ablations to run, e.g. gait,personality. Use auto for G+P, none to disable.",
+        "--prediction_csv",
+        default="",
+        help="Optional output path for binary.csv or ternary.csv. If empty, will write under logs_dir.",
     )
+    # NOTE: 移除打分相关参数（score_alpha/beta/gamma）与 ablation
     return parser
 
 
@@ -93,16 +90,6 @@ def setup_logger() -> logging.Logger:
     return logger
 
 
-def append_summary_row(csv_path: Path, row: dict[str, Any]) -> None:
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    exists = csv_path.exists()
-    with open(csv_path, "a", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(row.keys()))
-        if not exists:
-            writer.writeheader()
-        writer.writerow(row)
-
-
 def resolve_track_task_dir(root: Path, track: str, subtrack: str, task: str, experiment_name: str) -> Path:
     subtrack_dir = SUBTRACK_LOG_DIRS.get(subtrack, subtrack.replace("+", "-"))
     return root / track / subtrack_dir / task / experiment_name
@@ -118,70 +105,6 @@ def require_checkpoint_value(checkpoint: dict[str, Any], key: str) -> Any:
     if value in (None, ""):
         raise KeyError(f"Checkpoint missing required field: {key}")
     return value
-
-
-def summarize_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in metrics.items() if key not in METRIC_ARRAY_KEYS}
-
-
-def resolve_ablation_modes(subtrack: str, requested_modes: str) -> list[str]:
-    requested_modes = str(requested_modes or "auto").strip().lower()
-    if requested_modes in {"", "auto"}:
-        return list(ABLATION_AUTO_SUBTRACKS.get(subtrack, ()))
-    if requested_modes in {"none", "off", "false", "0"}:
-        return []
-
-    modes: list[str] = []
-    for item in requested_modes.split(","):
-        mode = item.strip().lower()
-        if not mode or mode == "all":
-            continue
-        if mode not in {"audio", "video", "gait", "personality"}:
-            raise ValueError(f"Unsupported ablation mode: {mode}")
-        if mode not in modes:
-            modes.append(mode)
-    return modes
-
-
-def format_metric_value(metrics: dict[str, Any], key: str) -> str:
-    value = metrics.get(key, 0.0)
-    if value == "":
-        return ""
-    return f"{float(value):.6f}"
-
-
-def add_prefixed_metric_fields(row: dict[str, Any], prefix: str, metrics: dict[str, Any]) -> None:
-    for display_name, metric_key in SUMMARY_METRICS:
-        row[f"{prefix}_{display_name}"] = format_metric_value(metrics, metric_key)
-
-
-def add_ablation_effect_fields(
-    row: dict[str, Any],
-    metrics: dict[str, Any],
-    ablation_metrics: dict[str, dict[str, Any]],
-) -> None:
-    if "personality" in ablation_metrics:
-        gait_effect = metrics.get("scoretrack", 0.0) - ablation_metrics["personality"].get("scoretrack", 0.0)
-        row["gait_effect_ScoreTrack"] = f"{gait_effect:.6f}"
-    if "gait" in ablation_metrics:
-        personality_effect = metrics.get("scoretrack", 0.0) - ablation_metrics["gait"].get("scoretrack", 0.0)
-        row["personality_effect_ScoreTrack"] = f"{personality_effect:.6f}"
-
-
-def summarize_ablation_effects(
-    metrics: dict[str, Any],
-    ablation_metrics: dict[str, dict[str, Any]],
-) -> dict[str, float]:
-    effects: dict[str, float] = {}
-    if "personality" in ablation_metrics:
-        effects["gait_effect_scoretrack"] = float(metrics.get("scoretrack", 0.0)) - float(
-            ablation_metrics["personality"].get("scoretrack", 0.0)
-        )
-    if "gait" in ablation_metrics:
-        effects["personality_effect_scoretrack"] = float(metrics.get("scoretrack", 0.0)) - float(
-            ablation_metrics["gait"].get("scoretrack", 0.0)
-        )
-    return effects
 
 
 def read_sample_ids(sample_csv: str | Path) -> list[int]:
@@ -208,6 +131,7 @@ def infer_test_ids_from_data_root(data_root: str | Path) -> list[int]:
 
 
 def build_unlabeled_task_maps(sample_ids: list[int]) -> dict[str, Any]:
+    # 仅用于 Dataset 初始化占位，不用于评估
     label_map = {sample_id: 0 for sample_id in sample_ids}
     return {
         "test_map": label_map,
@@ -225,6 +149,8 @@ def load_test_task_maps(
 ) -> dict[str, Any]:
     split_path = resolve_project_path(remap_repo_path(split_csv)) if split_csv else None
     if split_path is not None and split_path.exists():
+        # 如果你给了带标签的 split_csv，这里仍然能加载标签，
+        # 但本脚本不再使用标签做评估，只用于保证 ID 列表一致。
         return load_task_maps(split_path, task, regression_label)
 
     sample_ids = read_sample_ids(sample_csv) if sample_csv else infer_test_ids_from_data_root(data_root)
@@ -238,36 +164,6 @@ def inverse_normalize_phq(value: float) -> float:
     if value >= math.log1p(27.0):
         return 27.0
     return float(math.expm1(value))
-
-
-def write_prediction_csv(metrics: dict[str, Any], task: str, output_path: str | Path) -> str:
-    output_path = resolve_project_path(remap_repo_path(output_path))
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if task == "binary":
-        pred_column = "binary_pred"
-    elif task == "ternary":
-        pred_column = "ternary_pred"
-    else:
-        raise ValueError(f"Prediction CSV is only supported for binary/ternary tasks, got task={task}")
-
-    class_preds = metrics.get("class_pred", metrics.get("y_pred", []))
-    phq_preds = metrics.get("phq_pred", metrics.get("y_pred", []))
-    rows = []
-    for sample_id, class_pred, phq_pred in zip(metrics["ids"], class_preds, phq_preds):
-        rows.append(
-            {
-                "id": int(sample_id),
-                pred_column: int(class_pred),
-                "phq9_pred": f"{inverse_normalize_phq(float(phq_pred)):.6f}",
-            }
-        )
-
-    with open(output_path, "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["id", pred_column, "phq9_pred"])
-        writer.writeheader()
-        writer.writerows(rows)
-    return to_project_relative_path(output_path)
 
 
 def remap_repo_path(path_like: str | Path) -> str:
@@ -320,6 +216,90 @@ def remap_repo_path(path_like: str | Path) -> str:
     return str(path)
 
 
+def write_prediction_csv_from_logits(
+    ids: list[int],
+    class_pred: list[int],
+    phq_pred: list[float] | None,
+    task: str,
+    output_path: str | Path,
+) -> str:
+    output_path = resolve_project_path(remap_repo_path(output_path))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if task == "binary":
+        pred_column = "binary_pred"
+    elif task == "ternary":
+        pred_column = "ternary_pred"
+    else:
+        raise ValueError(f"Prediction CSV is only supported for binary/ternary tasks, got task={task}")
+
+    rows = []
+    for i, sample_id in enumerate(ids):
+        row = {"id": int(sample_id), pred_column: int(class_pred[i])}
+        if phq_pred is not None:
+            row["phq9_pred"] = f"{inverse_normalize_phq(float(phq_pred[i])):.6f}"
+        rows.append(row)
+
+    fieldnames = ["id", pred_column] + (["phq9_pred"] if phq_pred is not None else [])
+    with open(output_path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return to_project_relative_path(output_path)
+
+
+@torch.no_grad()
+def predict(model: nn.Module, loader: DataLoader, device: torch.device, use_regression_head: bool) -> dict[str, Any]:
+    model.eval()
+    all_ids: list[int] = []
+    all_class_pred: list[int] = []
+    all_phq_pred: list[float] = []
+
+    for batch in loader:
+        # collate_batch 通常会返回 dict
+        batch_ids = batch.get("ids", batch.get("id"))
+        if batch_ids is None:
+            raise KeyError("Batch missing 'ids' field. Please check collate_batch output.")
+
+        # ids 可能是 Tensor / list
+        if torch.is_tensor(batch_ids):
+            batch_ids_list = [int(x) for x in batch_ids.cpu().tolist()]
+        else:
+            batch_ids_list = [int(x) for x in batch_ids]
+
+        batch = {k: (v.to(device) if torch.is_tensor(v) else v) for k, v in batch.items()}
+
+        outputs = model(batch, only_modality=None) if callable(getattr(model, "__call__", None)) else model(**batch)
+
+        # 兼容 TorchcatBaseline 常见返回：可能是 dict 或 tuple
+        if isinstance(outputs, dict):
+            logits = outputs.get("logits", outputs.get("class_logits"))
+            phq = outputs.get("phq_pred", outputs.get("regression"))
+        else:
+            # 如果模型 forward 返回 (logits, phq) 或仅 logits
+            logits = outputs[0]
+            phq = outputs[1] if (use_regression_head and len(outputs) > 1) else None
+
+        if logits is None:
+            raise RuntimeError("Model output missing logits; cannot produce class predictions.")
+
+        preds = torch.argmax(logits, dim=-1).detach().cpu().tolist()
+
+        all_ids.extend(batch_ids_list)
+        all_class_pred.extend([int(p) for p in preds])
+
+        if use_regression_head and phq is not None:
+            phq_vals = phq.detach().float().cpu().view(-1).tolist()
+            all_phq_pred.extend([float(v) for v in phq_vals])
+
+    payload: dict[str, Any] = {"ids": all_ids, "class_pred": all_class_pred}
+    if use_regression_head:
+        payload["phq_pred"] = all_phq_pred if len(all_phq_pred) == len(all_ids) else None
+    else:
+        payload["phq_pred"] = None
+    return payload
+
+
 def main() -> None:
     args = parse_args()
     checkpoint_path = resolve_project_path(remap_repo_path(args.checkpoint))
@@ -353,7 +333,7 @@ def main() -> None:
     )
     test_dataset = MPDDElderDataset(
         data_root=data_root,
-        label_map=task_maps["test_map"],
+        label_map=task_maps["test_map"],  # 占位，不用于评估
         source_split_map=task_maps["source_split_map"],
         subtrack=subtrack,
         task=task,
@@ -379,102 +359,23 @@ def main() -> None:
     )
     model.load_state_dict(require_checkpoint_value(checkpoint, "model_state"))
     use_regression_head = bool(model_kwargs.get("use_regression_head", False))
-    is_regression_task = task == REGRESSION_TASK
-    criterion = (nn.CrossEntropyLoss(), nn.MSELoss()) if use_regression_head else nn.CrossEntropyLoss()
-    score_weights = build_score_weights(
-        args.score_alpha,
-        args.score_beta,
-        args.score_gamma,
-        base=checkpoint.get("score_weights"),
-    )
-    metrics = evaluate_model(model, test_loader, criterion, device, task, score_weights)
-    ablation_metrics: dict[str, dict[str, Any]] = {}
-    for ablation_mode in resolve_ablation_modes(subtrack, args.ablation_modes):
-        ablation_metrics[ablation_mode] = evaluate_model(
-            model,
-            test_loader,
-            criterion,
-            device,
-            task,
-            score_weights,
-            only_modality=ablation_mode,
-        )
-        logger.info(
-            "%s_only ScoreTrack=%.6f Macro-F1=%.6f Kappa=%.6f CCC=%.6f",
-            ablation_mode,
-            ablation_metrics[ablation_mode].get("scoretrack", 0.0),
-            ablation_metrics[ablation_mode].get("f1", 0.0),
-            ablation_metrics[ablation_mode].get("kappa", 0.0),
-            ablation_metrics[ablation_mode].get("ccc", 0.0),
-        )
-    metric_summary = summarize_metrics(metrics)
-    ablation_summary = {
-        f"{mode}_only": summarize_metrics(mode_metrics)
-        for mode, mode_metrics in ablation_metrics.items()
-    }
-    checkpoint_rel = to_project_relative_path(checkpoint_path)
-    prediction_csv_rel = ""
+
+    pred_payload = predict(model, test_loader, device, use_regression_head=use_regression_head)
+
     prediction_csv_path = args.prediction_csv
     if not prediction_csv_path and task in {"binary", "ternary"}:
         prediction_csv_path = log_dir / f"{task}_{checkpoint_path.stem}.csv"
-    if prediction_csv_path:
-        prediction_csv_rel = write_prediction_csv(metrics, task, prediction_csv_path)
+    if not prediction_csv_path:
+        raise ValueError("prediction_csv is required (or task must be binary/ternary to auto-generate a path).")
 
-    result_payload = {
-        "checkpoint": checkpoint_rel,
-        "track": track,
-        "task": task,
-        "subtrack": subtrack,
-        "encoder_type": encoder_type,
-        "audio_feature": audio_feature,
-        "video_feature": video_feature,
-        "regression_label": regression_label if is_regression_task else "",
-        "score_weights": score_weights,
-        "metrics": metric_summary,
-        "ablation_metrics": ablation_summary,
-        "ablation_effects": summarize_ablation_effects(metrics, ablation_metrics),
-        "predictions_path": prediction_csv_rel,
-    }
-    result_path = log_dir / f"test_result_only_{timestamp}.json"
-    with open(result_path, "w", encoding="utf-8") as handle:
-        json.dump(result_payload, handle, indent=2, ensure_ascii=False)
-
-    summary_row = {
-        "timestamp": timestamp,
-        "mode": "test_only",
-        "track": track,
-        "task": task,
-        "subtrack": subtrack,
-        "encoder_type": encoder_type,
-        "audio_feature": audio_feature,
-        "video_feature": video_feature,
-        "checkpoint": checkpoint_rel,
-        "predictions_path": prediction_csv_rel,
-        "ScoreTrack": f"{metrics.get('scoretrack', 0.0):.6f}",
-        "score_alpha": f"{score_weights['alpha']:.6f}",
-        "score_beta": f"{score_weights['beta']:.6f}",
-        "score_gamma": f"{score_weights['gamma']:.6f}",
-        "Macro-F1": f"{metrics.get('f1', 0.0):.6f}",
-        "ACC": f"{metrics.get('acc', 0.0):.6f}",
-        "Kappa": f"{metrics.get('kappa', 0.0):.6f}",
-        "CCC": f"{metrics['ccc']:.6f}",
-        "RMSE": f"{metrics['rmse']:.6f}",
-        "MAE": f"{metrics['mae']:.6f}",
-        "R2": f"{metrics.get('r2', ''):.6f}" if is_regression_task else "",
-    }
-    for ablation_mode, mode_metrics in ablation_metrics.items():
-        add_prefixed_metric_fields(summary_row, f"{ablation_mode}_only", mode_metrics)
-    add_ablation_effect_fields(summary_row, metrics, ablation_metrics)
-    if is_regression_task:
-        summary_row["regression_label"] = regression_label
-    append_summary_row(log_dir / f"{experiment_name}_test_only.csv", summary_row)
-    logger.info(
-        "ScoreTrack=%.6f | alpha=%.6f beta=%.6f gamma=%.6f",
-        metrics.get("scoretrack", 0.0), score_weights["alpha"], score_weights["beta"], score_weights["gamma"],
+    prediction_csv_rel = write_prediction_csv_from_logits(
+        ids=pred_payload["ids"],
+        class_pred=pred_payload["class_pred"],
+        phq_pred=pred_payload.get("phq_pred"),
+        task=task,
+        output_path=prediction_csv_path,
     )
-    if prediction_csv_rel:
-        logger.info("Prediction CSV saved to: %s", prediction_csv_rel)
-    logger.info("Test-only metrics saved to: %s", to_project_relative_path(result_path))
+    logger.info("Prediction CSV saved to: %s", prediction_csv_rel)
 
 
 if __name__ == "__main__":

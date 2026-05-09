@@ -39,12 +39,12 @@ case "$WEIGHTED_SAMPLER" in
     ;;
 esac
 
-echo "[Track2][A-V+P][ternary] seed=${SEED} target_t=${TARGET_T}"
+echo "[Track2][A-V-P][ternary] seed=${SEED} target_t=${TARGET_T}"
 cd "$PROJECT_ROOT"
 "$PYTHON_BIN" "$PROJECT_ROOT/train.py" \
   --track Track2 \
   --task ternary \
-  --subtrack "A-V+P" \
+  --subtrack "A-V-P" \
   --encoder_type "$ENCODER_TYPE" \
   --audio_feature "$AUDIO_FEATURE" \
   --video_feature "$VIDEO_FEATURE" \

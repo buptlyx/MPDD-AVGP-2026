@@ -6,7 +6,7 @@
 test_scripts/
 ├── _common.sh
 ├── Track1/
-│   ├── A-V-G+P/
+│   ├── A-V-G-P/
 │   │   ├── run_binary.sh
 │   │   └── run_ternary.sh
 │   ├── A-V-P/
@@ -16,7 +16,7 @@ test_scripts/
 │       ├── run_binary.sh
 │       └── run_ternary.sh
 └── Track2/
-    ├── A-V-G+P/
+    ├── A-V-G-P/
     │   ├── run_binary.sh
     │   └── run_ternary.sh
     ├── A-V-P/
@@ -79,7 +79,7 @@ checkpoints/
 Examples:
 
 ```bash
-bash test_scripts/Track1/A-V-G+P/run_binary.sh
+bash test_scripts/Track1/A-V-G-P/run_binary.sh
 bash test_scripts/Track1/A-V-P/run_ternary.sh
 bash test_scripts/Track2/G-P/run_binary.sh
 ```
@@ -87,14 +87,14 @@ bash test_scripts/Track2/G-P/run_binary.sh
 You can also explicitly set the Python interpreter or device:
 
 ```bash
-PYTHON_BIN=python3 DEVICE=cpu bash test_scripts/Track2/A-V-G+P/run_ternary.sh
+PYTHON_BIN=python3 DEVICE=cpu bash test_scripts/Track2/A-V-G-P/run_ternary.sh
 ```
 
 ## Test Example
 
 ```bash
 python test.py \
-  --checkpoint checkpoints/Track2/A-V-G+P/ternary/track2_ternary_A-V-G+P_bilstm_mean_wav2vec__resnet_log1p/best_model_2026-04-13-17.32.11.pth \
+  --checkpoint checkpoints/Track2/A-V-G-P/ternary/track2_ternary_A-V-G-P_bilstm_mean_wav2vec__resnet_log1p/best_model_2026-04-13-17.32.11.pth \
   --data_root MPDD-AVG2026-test/Young \
   --split_csv MPDD-AVG2026-test/Young/split_labels_test.csv \
   --personality_npy MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy

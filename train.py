@@ -25,9 +25,9 @@ from train_val_split import create_train_val_split
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SUBTRACK_LOG_DIRS = {
-    "A-V+P": "A-V-P",
-    "A-V-G+P": "A-V-G+P",
-    "G+P": "G-P",
+    "A-V-P": "A-V-P",
+    "A-V-G-P": "A-V-G-P",
+    "G-P": "G-P",
 }
 METRIC_ARRAY_KEYS = {"ids", "y_true", "y_pred", "class_true", "class_pred", "phq_true", "phq_pred"}
 PATH_ARG_KEYS = {"config", "data_root", "split_csv", "personality_npy", "checkpoints_dir", "logs_dir"}
@@ -44,7 +44,7 @@ def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--track", default=defaults["track"], choices=["Track1", "Track2"])
     parser.add_argument("--task", default=defaults["task"], choices=["binary", "ternary", REGRESSION_TASK])
     parser.add_argument("--regression_label", default=defaults.get("regression_label", "label2"), choices=["label2", "label3"])
-    parser.add_argument("--subtrack", default=defaults["subtrack"], choices=["A-V+P", "A-V-G+P", "G+P"])
+    parser.add_argument("--subtrack", default=defaults["subtrack"], choices=["A-V-P", "A-V-G-P", "G-P"])
     parser.add_argument("--encoder_type", default=defaults["encoder_type"], choices=["bilstm_mean", "hybrid_attn"])
     parser.add_argument("--audio_feature", default=defaults["audio_feature"])
     parser.add_argument("--video_feature", default=defaults["video_feature"])
@@ -135,7 +135,7 @@ def normalize_path_args(values: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_experiment_name(args: argparse.Namespace) -> str:
-    feature_tag = "gait_only" if args.subtrack == "G+P" else f"{args.audio_feature}__{args.video_feature}"
+    feature_tag = "gait_only" if args.subtrack == "G-P" else f"{args.audio_feature}__{args.video_feature}"
     if args.task == REGRESSION_TASK:
         return args.experiment_name or (
             f"{args.track.lower()}_{args.task}_{args.regression_label}_{args.subtrack}_{args.encoder_type}_{feature_tag}"

@@ -9,14 +9,14 @@
 
 可调整位置（任选其一）：
 - 训练脚本里设置环境变量：
-  - [scripts/Track1/A-V-G+P/run_binary.sh](scripts/Track1/A-V-G+P/run_binary.sh)
-  - [scripts/Track1/A-V-G+P/run_ternary.sh](scripts/Track1/A-V-G+P/run_ternary.sh)
+  - [scripts/Track1/A-V-G-P/run_binary.sh](scripts/Track1/A-V-G-P/run_binary.sh)
+  - [scripts/Track1/A-V-G-P/run_ternary.sh](scripts/Track1/A-V-G-P/run_ternary.sh)
   - [scripts/Track1/A-V-P/run_binary.sh](scripts/Track1/A-V-P/run_binary.sh)
   - [scripts/Track1/A-V-P/run_ternary.sh](scripts/Track1/A-V-P/run_ternary.sh)
   - [scripts/Track1/G-P/run_binary.sh](scripts/Track1/G-P/run_binary.sh)
   - [scripts/Track1/G-P/run_ternary.sh](scripts/Track1/G-P/run_ternary.sh)
-  - [scripts/Track2/A-V-G+P/run_binary.sh](scripts/Track2/A-V-G+P/run_binary.sh)
-  - [scripts/Track2/A-V-G+P/run_ternary.sh](scripts/Track2/A-V-G+P/run_ternary.sh)
+  - [scripts/Track2/A-V-G-P/run_binary.sh](scripts/Track2/A-V-G-P/run_binary.sh)
+  - [scripts/Track2/A-V-G-P/run_ternary.sh](scripts/Track2/A-V-G-P/run_ternary.sh)
   - [scripts/Track2/A-V-P/run_binary.sh](scripts/Track2/A-V-P/run_binary.sh)
   - [scripts/Track2/A-V-P/run_ternary.sh](scripts/Track2/A-V-P/run_ternary.sh)
   - [scripts/Track2/G-P/run_binary.sh](scripts/Track2/G-P/run_binary.sh)
@@ -30,23 +30,23 @@
 
 **训练脚本清单：**
 - Track1 / Elder
-  - A-V-G+P：
-    - 二分类：[scripts/Track1/A-V-G+P/run_binary.sh](scripts/Track1/A-V-G+P/run_binary.sh)
-    - 三分类：[scripts/Track1/A-V-G+P/run_ternary.sh](scripts/Track1/A-V-G+P/run_ternary.sh)
-  - A-V+P：
+  - A-V-G-P：
+    - 二分类：[scripts/Track1/A-V-G-P/run_binary.sh](scripts/Track1/A-V-G-P/run_binary.sh)
+    - 三分类：[scripts/Track1/A-V-G-P/run_ternary.sh](scripts/Track1/A-V-G-P/run_ternary.sh)
+  - A-V-P：
     - 二分类：[scripts/Track1/A-V-P/run_binary.sh](scripts/Track1/A-V-P/run_binary.sh)
     - 三分类：[scripts/Track1/A-V-P/run_ternary.sh](scripts/Track1/A-V-P/run_ternary.sh)
-  - G+P：
+  - G-P：
     - 二分类：[scripts/Track1/G-P/run_binary.sh](scripts/Track1/G-P/run_binary.sh)
     - 三分类：[scripts/Track1/G-P/run_ternary.sh](scripts/Track1/G-P/run_ternary.sh)
 - Track2 / Young
-  - A-V-G+P：
-    - 二分类：[scripts/Track2/A-V-G+P/run_binary.sh](scripts/Track2/A-V-G+P/run_binary.sh)
-    - 三分类：[scripts/Track2/A-V-G+P/run_ternary.sh](scripts/Track2/A-V-G+P/run_ternary.sh)
-  - A-V+P：
+  - A-V-G-P：
+    - 二分类：[scripts/Track2/A-V-G-P/run_binary.sh](scripts/Track2/A-V-G-P/run_binary.sh)
+    - 三分类：[scripts/Track2/A-V-G-P/run_ternary.sh](scripts/Track2/A-V-G-P/run_ternary.sh)
+  - A-V-P：
     - 二分类：[scripts/Track2/A-V-P/run_binary.sh](scripts/Track2/A-V-P/run_binary.sh)
     - 三分类：[scripts/Track2/A-V-P/run_ternary.sh](scripts/Track2/A-V-P/run_ternary.sh)
-  - G+P：
+  - G-P：
     - 二分类：[scripts/Track2/G-P/run_binary.sh](scripts/Track2/G-P/run_binary.sh)
     - 三分类：[scripts/Track2/G-P/run_ternary.sh](scripts/Track2/G-P/run_ternary.sh)
 
@@ -104,15 +104,15 @@
 - 为每次训练设置不同的 `EXPERIMENT_NAME` 便于区分。
 - 使用测试脚本对每个 checkpoint 跑测试集并产出 CSV：
   - Track1：
-    - [test_scripts/Track1/A-V-G+P/run_binary.sh](test_scripts/Track1/A-V-G+P/run_binary.sh)
-    - [test_scripts/Track1/A-V-G+P/run_ternary.sh](test_scripts/Track1/A-V-G+P/run_ternary.sh)
+    - [test_scripts/Track1/A-V-G-P/run_binary.sh](test_scripts/Track1/A-V-G-P/run_binary.sh)
+    - [test_scripts/Track1/A-V-G-P/run_ternary.sh](test_scripts/Track1/A-V-G-P/run_ternary.sh)
     - [test_scripts/Track1/A-V-P/run_binary.sh](test_scripts/Track1/A-V-P/run_binary.sh)
     - [test_scripts/Track1/A-V-P/run_ternary.sh](test_scripts/Track1/A-V-P/run_ternary.sh)
     - [test_scripts/Track1/G-P/run_binary.sh](test_scripts/Track1/G-P/run_binary.sh)
     - [test_scripts/Track1/G-P/run_ternary.sh](test_scripts/Track1/G-P/run_ternary.sh)
   - Track2：
-    - [test_scripts/Track2/A-V-G+P/run_binary.sh](test_scripts/Track2/A-V-G+P/run_binary.sh)
-    - [test_scripts/Track2/A-V-G+P/run_ternary.sh](test_scripts/Track2/A-V-G+P/run_ternary.sh)
+    - [test_scripts/Track2/A-V-G-P/run_binary.sh](test_scripts/Track2/A-V-G-P/run_binary.sh)
+    - [test_scripts/Track2/A-V-G-P/run_ternary.sh](test_scripts/Track2/A-V-G-P/run_ternary.sh)
     - [test_scripts/Track2/A-V-P/run_binary.sh](test_scripts/Track2/A-V-P/run_binary.sh)
     - [test_scripts/Track2/A-V-P/run_ternary.sh](test_scripts/Track2/A-V-P/run_ternary.sh)
     - [test_scripts/Track2/G-P/run_binary.sh](test_scripts/Track2/G-P/run_binary.sh)
@@ -137,15 +137,15 @@
 ## 7. Track2 特别注意
 
 - Young 测试集视频存在空文件问题，含视频的子赛道可能在测试阶段退化。
-- 建议优先保证 G+P 的强度，再决定是否保留含 V 的子赛道作为提交备选。
+- 建议优先保证 G-P 的强度，再决定是否保留含 V 的子赛道作为提交备选。
 
 ---
 
 ## 附：4×3090 并行跑法建议
 
 - 以“赛道×子赛道”为粒度分配 GPU：
-  - GPU0：Track1 / A-V-G+P
-  - GPU1：Track1 / A-V+P
-  - GPU2：Track2 / A-V-G+P
-  - GPU3：Track2 / G+P
+  - GPU0：Track1 / A-V-G-P
+  - GPU1：Track1 / A-V-P
+  - GPU2：Track2 / A-V-G-P
+  - GPU3：Track2 / G-P
 - 同一 GPU 上再通过 `SEED` 或 `A/V 特征组合` 顺序跑。

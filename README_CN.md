@@ -30,7 +30,7 @@
 - `Track2 = Young`
 - 二分类任务：`label2`
 - 三分类任务：`label3`
-- 子赛道：`A-V+P`、`A-V-G+P`、`G+P`
+- 子赛道：`A-V-P`、`A-V-G-P`、`G-P`
 - 编码器：`bilstm_mean`、`hybrid_attn`
 
 当前开源版本默认提供的是二分类和三分类脚本。二分类和三分类训练时都会联合一个 `PHQ-9` 回归头，因此分类实验会同时输出分类指标和 `PHQ-9` 回归指标。
@@ -79,11 +79,11 @@ MPDD_Avg/
 ├── scripts/
 │   ├── Track1/
 │   │   ├── A-V-P/
-│   │   ├── A-V-G+P/
+│   │   ├── A-V-G-P/
 │   │   └── G-P/
 │   └── Track2/
 │       ├── A-V-P/
-│       ├── A-V-G+P/
+│       ├── A-V-G-P/
 │       └── G-P/
 ├── checkpoints/
 ├── logs/
@@ -180,9 +180,9 @@ MPDD-AVG2026/
 
 子赛道定义：
 
-- `A-V+P`：音频 + 视频 + 人格
-- `A-V-G+P`：音频 + 视频 + 步态 + 人格
-- `G+P`：步态 + 人格
+- `A-V-P`：音频 + 视频 + 人格
+- `A-V-G-P`：音频 + 视频 + 步态 + 人格
+- `G-P`：步态 + 人格
 
 支持的特征名：
 
@@ -211,16 +211,16 @@ MPDD-AVG2026/
 
 也就是说：
 
-- `A-V+P` 会插值 `audio + video`
-- `A-V-G+P` 会插值 `audio + video + gait`
-- `G+P` 只会插值 `gait`
+- `A-V-P` 会插值 `audio + video`
+- `A-V-G-P` 会插值 `audio + video + gait`
+- `G-P` 只会插值 `gait`
 
 当前脚本行为为：
 
 - `scripts/Track1/A-V-P`
-- `scripts/Track1/A-V-G+P`
+- `scripts/Track1/A-V-G-P`
 - `scripts/Track2/A-V-P`
-- `scripts/Track2/A-V-G+P`
+- `scripts/Track2/A-V-G-P`
 
 以上四组脚本都会自动遍历 9 种 A/V 组合：
 
@@ -232,7 +232,7 @@ MPDD-AVG2026/
 - `scripts/Track1/G-P`
 - `scripts/Track2/G-P`
 
-只跑 `G+P`，即 gait-only，不涉及 A/V 组合遍历。
+只跑 `G-P`，即 gait-only，不涉及 A/V 组合遍历。
 
 数据加载器还兼容以下情况：
 
@@ -244,28 +244,28 @@ MPDD-AVG2026/
 
 - `Young test` 的 `Video/densenet`、`Video/resnet`、`Video/openface` 当前都是 `0` 字节空文件
 - 因此 `Track2` 中所有含 `V` 的任务在 `test` 阶段，视频分支会退化为零输入
-- `Track2` 的 `G+P` 不受这个问题影响
+- `Track2` 的 `G-P` 不受这个问题影响
 - `Young trainval` 的 `Video/openface` 也不是全量有效文件，使用时要结合日志中的有效样本数一起判断
 
 ## 6. 快速开始
 
 ### 6.1 直接使用现成脚本
 
-示例：运行 `Track1 / Elder / A-V-G+P / 二分类`
+示例：运行 `Track1 / Elder / A-V-G-P / 二分类`
 
 ```bash
-bash scripts/Track1/A-V-G+P/run_binary.sh
+bash scripts/Track1/A-V-G-P/run_binary.sh
 ```
 
 这会顺序跑完 9 种 A/V 特征组合。
 
-示例：运行 `Track1 / Elder / G+P / 三分类`
+示例：运行 `Track1 / Elder / G-P / 三分类`
 
 ```bash
 bash scripts/Track1/G-P/run_ternary.sh
 ```
 
-示例：运行 `Track2 / Young / A-V+P / 二分类`
+示例：运行 `Track2 / Young / A-V-P / 二分类`
 
 ```bash
 bash scripts/Track2/A-V-P/run_binary.sh
@@ -273,10 +273,10 @@ bash scripts/Track2/A-V-P/run_binary.sh
 
 这也会顺序跑完 9 种 A/V 特征组合。
 
-示例：运行 `Track2 / Young / A-V-G+P / 三分类`
+示例：运行 `Track2 / Young / A-V-G-P / 三分类`
 
 ```bash
-bash scripts/Track2/A-V-G+P/run_ternary.sh
+bash scripts/Track2/A-V-G-P/run_ternary.sh
 ```
 
 ### 6.2 覆盖脚本默认超参数
@@ -312,7 +312,7 @@ DEVICE=cpu EPOCHS=5 BATCH_SIZE=4 LR=1e-3 bash scripts/Track1/A-V-P/run_binary.sh
 python train.py \
   --track Track1 \
   --task binary \
-  --subtrack A-V-G+P \
+  --subtrack A-V-G-P \
   --encoder_type bilstm_mean \
   --audio_feature wav2vec \
   --video_feature resnet \
@@ -325,7 +325,7 @@ python train.py \
 python train.py \
   --track Track2 \
   --task ternary \
-  --subtrack A-V+P \
+  --subtrack A-V-P \
   --encoder_type bilstm_mean \
   --audio_feature wav2vec \
   --video_feature resnet \
@@ -346,7 +346,7 @@ python train.py \
 
 ```bash
 python test.py
-   --checkpoint checkpoints/Track2/A-V-G+P/ternary/track2_ternary_A-V-G+P_bilstm_mean_wav2vec__resnet_log1p/best_model_*.pth
+   --checkpoint checkpoints/Track2/A-V-G-P/ternary/track2_ternary_A-V-G-P_bilstm_mean_wav2vec__resnet_log1p/best_model_*.pth
    --data_root MPDD-AVG2026/MPDD-AVG2026-test/Young
    --split_csv MPDD-AVG2026/MPDD-AVG2026-test/Young/split_labels_test.csv
    --personality_npy MPDD-AVG2026/MPDD-AVG2026-trainval/Young/descriptions_embeddings_with_ids.npy
@@ -484,7 +484,7 @@ TARGET_T=256 bash scripts/Track1/G-P/run_binary.sh
 
 因此：
 
-- `Track2 / A-V+P`
-- `Track2 / A-V-G+P`
+- `Track2 / A-V-P`
+- `Track2 / A-V-G-P`
 
 在 `test` 阶段的视频分支没有真实视频信息，当前工程会自动补零以保证流程跑通。
