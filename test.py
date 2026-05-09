@@ -47,6 +47,7 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
         return json.load(handle)
 
 
+
 def build_parser(defaults: dict[str, Any]) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run inference from a trained MPDD-AVG baseline checkpoint.")
     parser.add_argument("--config", default="config.json")
